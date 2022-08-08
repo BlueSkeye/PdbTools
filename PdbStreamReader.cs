@@ -65,6 +65,8 @@ namespace PdbReader
             }
         }
 
+        internal uint StreamSize => _streamSize;
+
         private void AssertNotEndOfStream()
         {
             if (_endOfStreamReached) {

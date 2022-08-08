@@ -266,8 +266,11 @@ namespace PdbReader
             // Stream indexes have already been loaded during object initialization.
             if (null != _fpoDataStreamIndex) {
                 streamReader = new PdbStreamReader(_owner, _fpoDataStreamIndex.Value);
-                _FPO_DATA framePointerOmissionData = streamReader.Read<_FPO_DATA>();
-                throw new NotImplementedException();
+                List<_FPO_DATA> framePointerOmissionData = new List<_FPO_DATA>();
+                while (streamReader.Offset < streamReader.StreamSize) {
+                    _FPO_DATA thisFPOData = streamReader.Read<_FPO_DATA>();
+                    framePointerOmissionData.Add(thisFPOData);
+                }
             }
             if (null != _exceptionDataStreamIndex)
             {
