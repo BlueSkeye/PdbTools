@@ -142,11 +142,18 @@ namespace PdbReader
 
         internal void HandlePadding()
         {
+            uint paddingSize;
+            HandlePadding(out paddingSize);
+        }
+
+        internal void HandlePadding(out uint paddingSize)
+        {
             const uint WordBytesCount = 4;
-            uint paddingBytesCount = ComputePaddingSize(WordBytesCount);
-            if (0 == paddingBytesCount) {
+            paddingSize = ComputePaddingSize(WordBytesCount);
+            if (0 == paddingSize) {
                 return;
             }
+            uint paddingBytesCount = paddingSize;
             byte firstCandidatePaddingByte = PeekByte();
             if ((0xF0 + paddingBytesCount) == firstCandidatePaddingByte) {
                 while(0 < paddingBytesCount) {
@@ -156,6 +163,10 @@ namespace PdbReader
                     }
                     paddingBytesCount--;
                 }
+            }
+            else {
+                // No padding found.
+                paddingSize = 0;
             }
         }
 
@@ -304,17 +315,27 @@ namespace PdbReader
 
         internal string ReadNTBString()
         {
+            uint consumedBytes;
+            return ReadNTBString(out consumedBytes);
+        }
+
+        internal string ReadNTBString(out uint consumedBytes)
+        {
             AssertNotEndOfStream();
             List<byte> bytes = new List<byte>();
+            consumedBytes = 0;
             while (true) {
                 byte inputByte = ReadByte();
                 if (0 == inputByte) { break; }
                 bytes.Add(inputByte);
+                consumedBytes++;
             }
             string result = Encoding.UTF8.GetString(bytes.ToArray());
             // It looks like some but not all NTB strings are further padded with additional
             // bytes to next 32 bits boundary. Padding bytes are 0xF3 0xF2 0xF1 (in that order).
-            HandlePadding();
+            uint paddingSize;
+            HandlePadding(out paddingSize);
+            consumedBytes += paddingSize;
             HandleEndOfBlock();
             return result;
         }

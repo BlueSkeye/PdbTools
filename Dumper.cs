@@ -17,7 +17,7 @@ namespace PdbDumper
             }
             try {
                 foreach (FileInfo scannedPdb in _allFiles) {
-                    Pdb pdb = new Pdb(scannedPdb, Pdb.TraceFlags.None /*StreamDirectoryBlocks*/, true);
+                    Pdb pdb = new Pdb(scannedPdb, Pdb.TraceFlags.StreamDirectoryBlocks /*StreamDirectoryBlocks*/, true);
                     Console.WriteLine($"INFO : PDB file {scannedPdb.FullName} successfully loaded.");
                     LoadDBIStream(pdb);
                     LoadTPIStream(pdb);
@@ -39,6 +39,7 @@ namespace PdbDumper
             stream.LoadFileInformations();
             stream.LoadTypeServerMappings();
             stream.LoadEditAndContinueMappings();
+            stream.LoadOptionalStreams();
         }
 
         private static void LoadIPIStream(Pdb pdb)

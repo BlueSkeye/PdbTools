@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text;
 
 using PdbReader.Microsoft;
@@ -78,12 +77,32 @@ namespace PdbReader
 
         public void LoadEditAndContinueMappings()
         {
+            // TODO : Stream structure still unclear.
+            return;
             // Set stream position
-            int newOffset = Marshal.SizeOf<DBIStreamHeader>() + _header.ModInfoSize +
+            int mappingStartOffset = Marshal.SizeOf<DBIStreamHeader>() + _header.ModInfoSize +
                 _header.SectionContributionSize + _header.SectionMapSize +
                 _header.SourceInfoSize + _header.TypeServerMapSize;
-            _reader.Offset = Pdb.SafeCastToUint32(newOffset);
+            _reader.Offset = Pdb.SafeCastToUint32(mappingStartOffset);
 
+            EditAndContinueMappingHeader header = _reader.Read<EditAndContinueMappingHeader>();
+            if (EditAndContinueMappingHeader.SignatureValue != header.Signature) {
+                throw new PDBFormatException(
+                    $"Invalid type server mapping signature 0x{header.Signature}");
+            }
+
+            uint stringIndex = 0;
+            uint stringPoolStartOffset = _reader.Offset;
+            uint stringPoolRelativeOffset = 0;
+            while (stringPoolRelativeOffset < header.StringPoolBytesSize) {
+                Console.WriteLine(
+                    $"At offset global/relative 0x{_reader.GetGlobalOffset().Value:X8} / 0x{(stringPoolRelativeOffset):X8}");
+                uint consumedBytes;
+                string input = _reader.ReadNTBString(out consumedBytes);
+                stringPoolRelativeOffset += consumedBytes;
+                Console.WriteLine($"\t#{stringIndex++} : {input}");
+            }
+            uint mappingRelativeOffset = _reader.Offset - (uint)mappingStartOffset;
             throw new NotImplementedException();
         }
 
@@ -241,6 +260,87 @@ namespace PdbReader
             return;
         }
 
+        public void LoadOptionalStreams()
+        {
+            PdbStreamReader streamReader;
+            // Stream indexes have already been loaded during object initialization.
+            if (null != _fpoDataStreamIndex) {
+                streamReader = new PdbStreamReader(_owner, _fpoDataStreamIndex.Value);
+                _FPO_DATA framePointerOmissionData = streamReader.Read<_FPO_DATA>();
+                throw new NotImplementedException();
+            }
+            if (null != _exceptionDataStreamIndex)
+            {
+                throw new NotImplementedException();
+            }
+            if (null != _fixupDataStreamIndex)
+            {
+                throw new NotImplementedException();
+            }
+            if (null != _omapToSourceMappingStreamIndex)
+            {
+                throw new NotImplementedException();
+            }
+            if (null != _omapFromSourceMappingStreamIndex)
+            {
+                throw new NotImplementedException();
+            }
+            if (null != _sectionHeaderDataStreamIndex)
+            {
+                throw new NotImplementedException();
+            }
+            if (null != _tokenToRIDMappingStreamIndex)
+            {
+                throw new NotImplementedException();
+            }
+            if (null != _xdataStreamIndex)
+            {
+                throw new NotImplementedException();
+            }
+            if (null != _pdataStreamIndex)
+            {
+                throw new NotImplementedException();
+            }
+            if (null != _newFPODataStreamIndex)
+            {
+                throw new NotImplementedException();
+            }
+            if (null != _originalSectionHeaderDataStreamIndex)
+            {
+                throw new NotImplementedException();
+            }
+            return;
+        }
+
+        public struct _FPO_DATA
+        {
+            internal uint ulOffStart;            // offset 1st byte of function code
+            internal uint cbProcSize;            // # bytes in function
+            internal uint cdwLocals;             // # bytes in locals/4
+            internal ushort cdwParams;             // # bytes in params/4
+            internal byte cbProlog;          // # bytes in prolog
+            internal _Flags Flags;
+
+            [Flags()]
+            public enum _Flags : byte
+            {
+                NoRegSaved = 0x00,
+                OneRegSaved = 0x01,
+                TwoRegsSaved = 0x02,
+                ThreeRegsSaved = 0x03,
+                FourRegsSaved = 0x04,
+                FiveRegsSaved = 0x05,
+                SixRegsSaved = 0x06,
+                SevenRegsSaved = 0x07,
+                HasStructuredExceptionHandling = 0x08,
+                UseEBP = 0x10,
+                Reserverd = 0x20,
+                FrameFPO = 0x40,
+                FrameTrap = 0x80,
+                FrameTSS = 0xC0
+            }
+        }
+
         public void LoadSectionContributions()
         {
             // Set stream position
@@ -285,6 +385,10 @@ namespace PdbReader
 
         public void LoadTypeServerMappings()
         {
+            if (0 == _header.TypeServerMapSize) {
+                Console.WriteLine("Type server mappings not present.");
+                return;
+            }
             // Set stream position
             int newOffset = Marshal.SizeOf<DBIStreamHeader>() + _header.ModInfoSize +
                 _header.SectionContributionSize + _header.SectionMapSize +
@@ -411,6 +515,18 @@ namespace PdbReader
                 /// <summary>If set, descriptor represents a group.</summary>
                 IsGroup = 0x0400
             }
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        internal struct EditAndContinueMappingHeader
+        {
+            internal const uint SignatureValue = 0xEFFEEFFE;
+
+            // Should be 0xEFFEEFFE
+            internal uint Signature;
+            internal uint Unkown1;
+            internal uint StringPoolBytesSize;
+            internal byte Unknown3;
         }
     }
 }

@@ -1,5 +1,4 @@
-﻿using System.IO.MemoryMappedFiles;
-
+﻿
 namespace PdbReader
 {
     /// <summary>Provides a forward only reader of the blockmap content.</summary>
@@ -53,6 +52,8 @@ namespace PdbReader
             SetCurrentReaderBlock(0);
         }
 
+        internal uint[] BlocksList => (uint[])_blockMapBlocks.Clone();
+
         private void AdjustReaderBlock()
         {
             if (_readerOffset < _currentReaderBlockStartOffset) {
@@ -62,6 +63,14 @@ namespace PdbReader
             if (delta >= _blockSize) {
                 SetCurrentReaderBlock(++_currentReaderBlockIndex);
             }
+        }
+
+        internal IEnumerable<uint> EnumerateBlockMapBlockIndexes()
+        {
+            foreach(uint value in _blockMapBlocks) {
+                yield return value;
+            }
+            yield break;
         }
 
         internal uint ReadUInt32()
