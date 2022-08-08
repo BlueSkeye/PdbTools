@@ -35,7 +35,7 @@ namespace PdbDumper
             DebugInformationStream stream = pdb.DebugInfoStream;
             stream.LoadModuleInformations();
             stream.LoadSectionContributions();
-            stream.LoadSectionMappings();
+            DebugInformationStream.SectionMapEntry[] sections = stream.LoadSectionMappings();
             stream.LoadFileInformations();
             stream.LoadTypeServerMappings();
             stream.LoadEditAndContinueMappings();

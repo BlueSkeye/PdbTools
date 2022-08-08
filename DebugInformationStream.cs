@@ -106,7 +106,11 @@ namespace PdbReader
             // values of the ModFileCounts array (discussed below). In short, this value
             // should be ignored.
             ushort sourceFilesCount = _reader.ReadUInt16();
-            // This array is present, but does not appear to be useful.
+            // This array is present, but does not appear to be useful. Values are in increasing
+            // order. Last ones may be equal to sourceFilesCount. This may suggest that the
+            // indice for module X is the index of the first participating file for this module.
+            // Modules where moduleIndices value equals sourceFilesCount would be modules with
+            // no associated file.
             ushort[] moduleIndices = new ushort[modulesCount];
             _reader.ReadArray(moduleIndices, _reader.ReadUInt16);
             // An array of NumModules integers, each one containing the number of source
@@ -118,50 +122,81 @@ namespace PdbReader
             // source file contributions to modules.
             ushort[] moduleFilesCount = new ushort[modulesCount];
             _reader.ReadArray(moduleFilesCount, _reader.ReadUInt16);
+            // NOTE : modulesIndices and moduleFilesCount arrays should match, that is for
+            // module X : modulesIndices[X+1] - moduleIndices[X] == moduleFilesCount[X]
+            uint realFileCount = 0;
+            int upperCheckBound = modulesCount - 1;
+            // We should take for granted the file count of the last module.
+            for (int checkIndex = 0; checkIndex < upperCheckBound; checkIndex++) {
+                realFileCount += moduleFilesCount[checkIndex];
+#if DEBUG
+                uint expectedFilesCount;
+                if (moduleIndices[checkIndex + 1] < moduleIndices[checkIndex]) {
+                    throw new PDBFormatException(
+                        $"Module #{checkIndex} first file indice is greater than next module's one.");
+                }
+                expectedFilesCount = (uint)moduleIndices[checkIndex + 1] -
+                    (uint)moduleIndices[checkIndex];
+                if (expectedFilesCount != moduleFilesCount[checkIndex]) {
+                    throw new PDBFormatException($"Module #{checkIndex} is expected to have {expectedFilesCount} files. Modules file count value is {moduleFilesCount[checkIndex]}");
+                }
+#endif
+            }
+#if DEBUG
+            if (uint.MaxValue > realFileCount) {
+                if (realFileCount != sourceFilesCount) {
+                    throw new PDBFormatException($"File count discrepancy. Computed vs defined : {realFileCount}/{sourceFilesCount} ");
+                }
+            }
+#endif
             // An array of NumSourceFiles integers (where NumSourceFiles here refers to
             // the 32-bit value obtained from summing moduleFilesCount), where each
             // integer is an offset into NamesBuffer pointing to a null terminated string.
-            uint realFileCount = 0;
-            foreach(ushort value in moduleFilesCount) {
-                realFileCount += value;
-            }
             uint[] fileNameOffsets = new uint[realFileCount];
             _reader.ReadArray(fileNameOffsets, _reader.ReadUInt32);
             // An array of null terminated strings containing the actual source file names.
             Dictionary<uint, string> fileNameByIndex = new Dictionary<uint, string>();
             uint filenameBaseOffset = _reader.Offset;
+#if DEBUG
+            uint maxFilenameOffset = 0;
+#endif
             for(int index = 0; index < realFileCount; index++) {
-                if (876 == index) {
-                    bool doBreak = true;
+                uint candidateOffset = fileNameOffsets[index];
+                if (fileNameByIndex.ContainsKey(candidateOffset)) {
+                    // The file name is already known.
+                    continue;
                 }
-                uint thisFileOffset = _reader.Offset;
+#if DEBUG
+                if (maxFilenameOffset < candidateOffset) {
+                    maxFilenameOffset = candidateOffset;
+                }
+#endif
+                _reader.Offset = filenameBaseOffset + candidateOffset;
                 string filename = _reader.ReadNTBString();
-                uint fileRelativeOffset = thisFileOffset - filenameBaseOffset;
-                fileNameByIndex.Add(fileRelativeOffset, filename);
-Console.WriteLine($"Added #{fileNameByIndex.Count} '{filename}' @0x{fileRelativeOffset:X8}");
-                if (126 == fileNameByIndex.Count) {
-                    bool doBreak = true;
-                }
+                fileNameByIndex.Add(candidateOffset, filename);
+#if DEBUG
+                Console.WriteLine($"Added #{fileNameByIndex.Count} '{filename}' Offset 0x{candidateOffset:X8}");
+#endif
             }
 
             // Tracing
-            int offsetIndex = 0;
-            for(uint moduleIndex = 0; moduleIndex < modulesCount; moduleIndex++) {
-                if (_owner.ShouldTraceModules) {
+            if (_owner.ShouldTraceModules) {
+                int offsetIndex = 0;
+                for(uint moduleIndex = 0; moduleIndex < modulesCount; moduleIndex++) {
                     Console.WriteLine($"Module #{moduleIndex}");
-                }
-                int thisModuleFilesCount = moduleFilesCount[moduleIndex];
-                for (int moduleFileIndex = 0;
-                    moduleFileIndex < thisModuleFilesCount;
-                    moduleFileIndex++)
-                {
-                    uint thisFileOffset = fileNameOffsets[offsetIndex++];
-                    string? currentFilename;
-                    if (!fileNameByIndex.TryGetValue(thisFileOffset, out currentFilename)) {
-                        Console.WriteLine($"\tUnmatched file index {thisFileOffset}");
-                    }
-                    else {
-                        Console.WriteLine($"\t{currentFilename}");
+                    int thisModuleFilesCount = moduleFilesCount[moduleIndex];
+                    for (int moduleFileIndex = 0;
+                        moduleFileIndex < thisModuleFilesCount;
+                        moduleFileIndex++)
+                    {
+                        uint thisFileOffset = fileNameOffsets[offsetIndex++];
+                        string? currentFilename;
+                        if (!fileNameByIndex.TryGetValue(thisFileOffset, out currentFilename)) {
+                            Console.WriteLine($"\tUnmatched file index {thisFileOffset}");
+                        }
+                        else {
+                            Console.WriteLine($"\t{currentFilename}");
+                        }
                     }
                 }
             }
