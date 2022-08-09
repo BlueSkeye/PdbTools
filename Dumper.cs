@@ -15,9 +15,14 @@ namespace PdbDumper
                 Usage();
                 return 1;
             }
+            Pdb.TraceFlags traceFlags =
+                Pdb.TraceFlags.FullDecodingDebug |
+                Pdb.TraceFlags.StreamDirectoryBlocks
+                ;
+
             try {
                 foreach (FileInfo scannedPdb in _allFiles) {
-                    Pdb pdb = new Pdb(scannedPdb, Pdb.TraceFlags.StreamDirectoryBlocks /*StreamDirectoryBlocks*/, true);
+                    Pdb pdb = new Pdb(scannedPdb,  traceFlags, true);
                     Console.WriteLine($"INFO : PDB file {scannedPdb.FullName} successfully loaded.");
                     LoadDBIStream(pdb);
                     LoadTPIStream(pdb);

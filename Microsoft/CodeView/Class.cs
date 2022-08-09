@@ -8,23 +8,42 @@ namespace PdbReader.Microsoft.CodeView
         // data describing length of structure in bytes and name
         internal ulong _structureSize;
         internal string _name;
-        internal string _decoratedName;
+        internal ulong _unknown;
+        internal string? _decoratedName;
 
-        private Class(_Class @class, ulong structureSize, string name, string decoratedName)
+        private Class(_Class @class, ulong structureSize, string name)
         {
             _class = @class;
             _structureSize = structureSize;
             _name = name;
-            _decoratedName = decoratedName;
+            _unknown = 0;
+            _decoratedName = null;
         }
 
-        internal static Class Create(PdbStreamReader reader)
+        internal static Class Create(PdbStreamReader reader, uint recordLength)
         {
+            uint startOffset = reader.Offset;
             _Class header = reader.Read<_Class>();
             ulong structureSize = reader.ReadVariableLengthValue();
             string itemName = reader.ReadNTBString();
-            string decoratedName = reader.ReadNTBString();
-            return new Class(header, structureSize, itemName, decoratedName);
+            Class result = new Class(header, structureSize, itemName);
+            uint remainingBytes = recordLength + startOffset;
+            if (remainingBytes < reader.Offset) {
+                throw new PDBFormatException("Record length mismatch.");
+            }
+            remainingBytes -= reader.Offset;
+            // The unknown value is optional.
+            if (sizeof(ushort) < remainingBytes) {
+                // TODO : Understand why sometimes there is a single byte 0xF3
+                // for example that can't strictly be considered padding.
+                ulong unknown = reader.ReadVariableLengthValue();
+                result._unknown = unknown;
+                if ((reader.Offset - startOffset) < recordLength) {
+                    // We must expect an additional decorated name.
+                    result._decoratedName = reader.ReadNTBString();
+                }
+            }
+            return result;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]

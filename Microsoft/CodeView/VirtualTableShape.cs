@@ -14,21 +14,22 @@ namespace PdbReader.Microsoft.CodeView
         internal static VirtualTableShape Create(PdbStreamReader reader)
         {
             _VirtualTableShape data = reader.Read<_VirtualTableShape>();
-            // TODO : Encoding is unclear.
-            //byte inputByte = 0;
-            //for(int index = 0; index < data.count; index++) {
-            //    CV_VTS_desc_e entry = 0;
-            //    if (0 == (index % 2)) {
-            //        inputByte = reader.ReadByte();
-            //        entry = (CV_VTS_desc_e)(inputByte & 0x0F);
-            //    }
-            //    else {
-            //        entry = (CV_VTS_desc_e)((inputByte & 0xF0) >> 4);
-            //    }
-            //    if (CV_VTS_desc_e.Unused == entry) {
-            //        throw new PDBFormatException("May be");
-            //    }
-            //}
+            byte inputByte = 0;
+            for(int index = 0; index < data.count; index++) {
+                CV_VTS_desc_e entry = 0;
+                if (0 == (index % 2)) {
+                    inputByte = reader.ReadByte();
+                    entry = (CV_VTS_desc_e)(inputByte & 0x0F);
+                }
+                else {
+                    entry = (CV_VTS_desc_e)((inputByte & 0xF0) >> 4);
+                }
+                if (CV_VTS_desc_e.Unused == entry) {
+                    throw new PDBFormatException("May be");
+                }
+            }
+            // Some virtual table shapes appear to have padding bytes.
+            reader.HandlePadding();
             return new VirtualTableShape(data);
         }
 

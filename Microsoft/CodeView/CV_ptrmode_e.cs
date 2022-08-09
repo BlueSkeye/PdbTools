@@ -1,10 +1,11 @@
 ﻿
 namespace PdbReader.Microsoft.CodeView
 {
-    internal enum CV_ptrmode_e
+    internal enum CV_ptrmode_e : byte
     {
         NormalPointer = 0x00, // "normal" pointer
         OldReference = 0x01, // "old" reference
+        // YES this is intended OldReference and LeftValueReference are homonyms.
         LeftValueReference = 0x01, // l-value reference
         PointerToMember = 0x02, // pointer to data member
         PointerToMemberFunction = 0x03, // pointer to member function

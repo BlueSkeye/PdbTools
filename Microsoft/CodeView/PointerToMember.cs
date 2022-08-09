@@ -2,8 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct PointerToMember : IPointer
+    internal class PointerToMember : IPointer
     {
         internal PointerBody _body;
         // index of containing class for pointer to member
@@ -13,10 +12,13 @@ namespace PdbReader.Microsoft.CodeView
 
         public PointerBody Body => _body;
 
-        internal static PointerToMember Create(PdbStreamReader reader, uint startOffset)
+        internal static PointerToMember Create(PdbStreamReader reader, PointerBody body)
         {
-            reader.Offset = startOffset;
-            PointerToMember result = reader.Read<PointerToMember>();
+            PointerToMember result = new PointerToMember() {
+                _body = body,
+                pmclass = reader.ReadUInt32(),
+                pmenum = (CV_pmtype_e)reader.ReadUInt16()
+            };
             return result;
         }
     }

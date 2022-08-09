@@ -2,8 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct SegmentBasedPointer : IPointer
+    internal class SegmentBasedPointer : IPointer
     {
         internal PointerBody _body;
         // base segment if CV_PTR_BASE_SEG
@@ -11,10 +10,12 @@ namespace PdbReader.Microsoft.CodeView
 
         public PointerBody Body => _body;
 
-        internal static SegmentBasedPointer Create(PdbStreamReader reader, uint startOffset)
+        internal static SegmentBasedPointer Create(PdbStreamReader reader, PointerBody rawBody)
         {
-            reader.Offset = startOffset;
-            SegmentBasedPointer result = reader.Read<SegmentBasedPointer>();
+            SegmentBasedPointer result = new SegmentBasedPointer() {
+                _body = rawBody,
+                bseg = reader.ReadUInt16()
+            };
             return result;
         }
     }

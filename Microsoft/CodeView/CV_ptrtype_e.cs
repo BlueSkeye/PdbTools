@@ -1,7 +1,7 @@
 ﻿
 namespace PdbReader.Microsoft.CodeView
 {
-    internal enum CV_ptrtype_e
+    internal enum CV_ptrtype_e : byte
     {
         Near = 0x00, // 16 bit pointer
         Far = 0x01, // 16:16 far pointer

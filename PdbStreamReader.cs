@@ -151,25 +151,40 @@ namespace PdbReader
         internal void HandlePadding(out uint paddingSize)
         {
             const uint WordBytesCount = 4;
-            paddingSize = ComputePaddingSize(WordBytesCount);
-            if (0 == paddingSize) {
-                return;
-            }
-            uint paddingBytesCount = paddingSize;
+            // Initially we tought padding would aling on a world boundary.
+            // However it appears this doesn't always stand. So we can't
+            // compute expected padding size ahead of time as we did until
+            // those rare cases were discovered.
             byte firstCandidatePaddingByte = PeekByte();
-            if ((0xF0 + paddingBytesCount) == firstCandidatePaddingByte) {
-                while(0 < paddingBytesCount) {
-                    byte paddingByte = ReadByte();
-                    if (paddingByte != (0xF0 + paddingBytesCount)) {
-                        throw new BugException();
-                    }
-                    paddingBytesCount--;
+            uint paddingBytesCount;
+            switch (firstCandidatePaddingByte) {
+                case 0xF3:
+                    paddingBytesCount = 3;
+                    break;
+                case 0xF2:
+                    paddingBytesCount = 2;
+                    break;
+                case 0xF1:
+                    paddingBytesCount = 1;
+                    break;
+                default:
+                    // No padding expected.
+                    paddingSize = 0;
+                    return;
+            }
+            IStreamGlobalOffset paddingStartGlobalOffset = GetGlobalOffset();
+            paddingSize = paddingBytesCount;
+            while (0 < paddingBytesCount) {
+                byte paddingByte = ReadByte();
+                if (paddingByte != (0xF0 + paddingBytesCount)) {
+                    // Not a true padding.
+                    SetGlobalOffset(paddingStartGlobalOffset, true);
+                    paddingSize = 0;
+                    return;
                 }
+                paddingBytesCount--;
             }
-            else {
-                // No padding found.
-                paddingSize = 0;
-            }
+            return;
         }
 
         private void MoveToNextBlock()
@@ -328,7 +343,12 @@ namespace PdbReader
             consumedBytes = 0;
             while (true) {
                 byte inputByte = ReadByte();
-                if (0 == inputByte) { break; }
+                if (0 == inputByte) {
+                    // Sometimes, multiple NTBs may appear at end of string.
+                    if (0 != PeekByte()) {
+                        break;
+                    }
+                }
                 bytes.Add(inputByte);
                 consumedBytes++;
             }
@@ -370,6 +390,25 @@ namespace PdbReader
             }
             return result;
         }
+
+        //internal ulong ReadVariableLengthValue()
+        //{
+        //    ulong result = 0;
+        //    ushort inputWord = ReadUInt16();
+        //    uint totalBits = 0;
+        //    while (true) {
+        //        result <<= 15;
+        //        result += (ulong)(inputWord & (ushort)0x7FFF);
+        //        totalBits += 15;
+        //        if (0 == (inputWord & 0x8000)) {
+        //            if (totalBits > 32) {
+        //                bool doBreak = true;
+        //            }
+        //            return result;
+        //        }
+        //        inputWord = ReadUInt16();
+        //    }
+        //}
 
         internal ushort ReadUInt16()
         {

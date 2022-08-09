@@ -260,88 +260,61 @@ namespace PdbReader
             return;
         }
 
+        private List<T> LoadOptionalStream<T>(ushort? streamIndex, string streamName)
+            where T : struct
+        {
+            PdbStreamReader streamReader = new PdbStreamReader(_owner, streamIndex.Value);
+            List<T> result = new List<T>();
+            while (streamReader.Offset < streamReader.StreamSize) {
+                T thisItem = streamReader.Read<T>();
+                result.Add(thisItem);
+            }
+            if (streamReader.Offset != streamReader.StreamSize) {
+                throw new PDBFormatException($"Invalid {streamName} stream format.");
+            }
+            return result;
+        }
+
         public void LoadOptionalStreams()
         {
-            PdbStreamReader streamReader;
             // Stream indexes have already been loaded during object initialization.
             if (null != _fpoDataStreamIndex) {
-                streamReader = new PdbStreamReader(_owner, _fpoDataStreamIndex.Value);
-                List<_FPO_DATA> framePointerOmissionData = new List<_FPO_DATA>();
-                while (streamReader.Offset < streamReader.StreamSize) {
-                    _FPO_DATA thisFPOData = streamReader.Read<_FPO_DATA>();
-                    framePointerOmissionData.Add(thisFPOData);
-                }
+                List<_FPO_DATA> result = LoadOptionalStream<_FPO_DATA>(_fpoDataStreamIndex, "FPO Data");
             }
-            if (null != _exceptionDataStreamIndex)
-            {
+            if (null != _exceptionDataStreamIndex) {
                 throw new NotImplementedException();
             }
-            if (null != _fixupDataStreamIndex)
-            {
+            if (null != _fixupDataStreamIndex) {
+                List<_FIXUP_DATA> result = LoadOptionalStream<_FIXUP_DATA>(_fixupDataStreamIndex,
+                    "Fixup Data");
+            }
+            if (null != _omapToSourceMappingStreamIndex) {
                 throw new NotImplementedException();
             }
-            if (null != _omapToSourceMappingStreamIndex)
-            {
+            if (null != _omapFromSourceMappingStreamIndex) {
                 throw new NotImplementedException();
             }
-            if (null != _omapFromSourceMappingStreamIndex)
-            {
+            if (null != _sectionHeaderDataStreamIndex) {
+                // Dump of all section headers from the original file.
+                List<SectionHeader> result = LoadOptionalStream<SectionHeader>(_sectionHeaderDataStreamIndex,
+                    "Section Headers");
+            }
+            if (null != _tokenToRIDMappingStreamIndex) {
                 throw new NotImplementedException();
             }
-            if (null != _sectionHeaderDataStreamIndex)
-            {
+            if (null != _xdataStreamIndex) {
                 throw new NotImplementedException();
             }
-            if (null != _tokenToRIDMappingStreamIndex)
-            {
+            if (null != _pdataStreamIndex) {
                 throw new NotImplementedException();
             }
-            if (null != _xdataStreamIndex)
-            {
-                throw new NotImplementedException();
+            if (null != _newFPODataStreamIndex) {
+                List<_FPO_DATA> result = LoadOptionalStream<_FPO_DATA>(_newFPODataStreamIndex, "New FPO Data");
             }
-            if (null != _pdataStreamIndex)
-            {
-                throw new NotImplementedException();
-            }
-            if (null != _newFPODataStreamIndex)
-            {
-                throw new NotImplementedException();
-            }
-            if (null != _originalSectionHeaderDataStreamIndex)
-            {
+            if (null != _originalSectionHeaderDataStreamIndex) {
                 throw new NotImplementedException();
             }
             return;
-        }
-
-        public struct _FPO_DATA
-        {
-            internal uint ulOffStart;            // offset 1st byte of function code
-            internal uint cbProcSize;            // # bytes in function
-            internal uint cdwLocals;             // # bytes in locals/4
-            internal ushort cdwParams;             // # bytes in params/4
-            internal byte cbProlog;          // # bytes in prolog
-            internal _Flags Flags;
-
-            [Flags()]
-            public enum _Flags : byte
-            {
-                NoRegSaved = 0x00,
-                OneRegSaved = 0x01,
-                TwoRegsSaved = 0x02,
-                ThreeRegsSaved = 0x03,
-                FourRegsSaved = 0x04,
-                FiveRegsSaved = 0x05,
-                SixRegsSaved = 0x06,
-                SevenRegsSaved = 0x07,
-                HasStructuredExceptionHandling = 0x08,
-                UseEBP = 0x10,
-                Reserverd = 0x20,
-                FrameFPO = 0x40,
-                FrameTrap = 0x80,
-                FrameTSS = 0xC0
-            }
         }
 
         public void LoadSectionContributions()
@@ -485,6 +458,163 @@ namespace PdbReader
             }
         }
 
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        internal struct EditAndContinueMappingHeader
+        {
+            internal const uint SignatureValue = 0xEFFEEFFE;
+
+            // Should be 0xEFFEEFFE
+            internal uint Signature;
+            internal uint Unkown1;
+            internal uint StringPoolBytesSize;
+            internal byte Unknown3;
+        }
+
+        // TODO : Undocumented structure.
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct _FIXUP_DATA
+        {
+            internal _Flags Flags;
+            internal uint Unknown1;
+            internal uint Unknown2;
+
+            [Flags()]
+            public enum _Flags : uint
+            {
+                /// <summary>Seems that when this flag is set, Unknown2 may be a length, otherwise
+                /// Unknown1 &lt Unknown2 and both are close to each other.</summary>
+                HasLength = 0x80000000
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct _FPO_DATA
+        {
+            // offset 1st byte of function code
+            internal uint ulOffStart;
+            // # bytes in function
+            internal uint cbProcSize;
+            // # bytes in locals/4
+            internal uint cdwLocals;
+            // # bytes in params/4
+            internal ushort cdwParams;
+            // # bytes in prolog
+            internal byte cbProlog;
+            internal _Flags Flags;
+
+            [Flags()]
+            public enum _Flags : byte
+            {
+                NoRegSaved = 0x00,
+                OneRegSaved = 0x01,
+                TwoRegsSaved = 0x02,
+                ThreeRegsSaved = 0x03,
+                FourRegsSaved = 0x04,
+                FiveRegsSaved = 0x05,
+                SixRegsSaved = 0x06,
+                SevenRegsSaved = 0x07,
+                HasStructuredExceptionHandling = 0x08,
+                UseEBP = 0x10,
+                Reserverd = 0x20,
+                FrameFPO = 0x40,
+                FrameTrap = 0x80,
+                FrameTSS = 0xC0
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct SectionHeader
+        {
+            public byte Name0;
+            public byte Name1;
+            public byte Name2;
+            public byte Name3;
+            public byte Name4;
+            public byte Name5;
+            public byte Name6;
+            public byte Name7;
+            public uint VirtualSize;
+            public uint VirtualAddress;
+            public uint SIzeOfRawData;
+            public uint PointerToRawData;
+            public uint PointerToRelocations;
+            public uint PointerToLineNumbers;
+            public ushort NumberOfRelocations;
+            public ushort NumberOfLineNumbers;
+            public _Flags Characteristics;
+
+            [Flags()]
+            public enum _Flags : uint
+            {
+                /// <summary>The section should not be padded to the next boundary.
+                /// This flag is obsolete and is replaced by IMAGE_SCN_ALIGN_1BYTES.
+                /// This is valid only for object files.</summary>
+                NoPadding = 0x00000008,
+                /// <summary>The section contains executable code.</summary>
+                ContainsCode = 0x00000020,
+                /// <summary>The section contains initialized data.</summary>
+                InitializedData = 0x00000040,
+                /// <summary>The section contains uninitialized data.</summary>
+                UninitializedData = 0x00000080,
+                /// <summary>The section contains comments or other information.
+                /// The.drectve section has this type. This is valid for object files only.</summary>
+                LinkerInfo = 0x00000200,
+                /// <summary>The section will not become part of the image. This is valid
+                /// only for object files.</summary>
+                LinkerShouldRemove = 0x00000800,
+                /// <summary>The section contains COMDAT data. For more information, see COMDAT
+                /// Sections (Object Only). This is valid only for object files.</summary>
+                COMDATData = 0x00001000,
+                /// <summary>The section contains data referenced through the global pointer (GP).</summary>
+                GlobalPointerReferencedData = 0x00008000,
+                /// <summary>Align data on a 1-byte boundary. Valid only for object files.</summary>
+                AlignTo1Byte = 0x00100000,
+                /// <summary>Align data on a 2-byte boundary. Valid only for object files.</summary>
+                AlignTo2Bytes = 0x00200000,
+                /// <summary>Align data on a 4-byte boundary. Valid only for object files.</summary>
+                AlignTo4Bytes = 0x00300000,
+                /// <summary>Align data on a 8-byte boundary. Valid only for object files.</summary>
+                AlignTo8Bytes = 0x00400000,
+                /// <summary>Align data on a 16-byte boundary. Valid only for object files.</summary>
+                AlignTo16Bytes = 0x00500000,
+                /// <summary>Align data on a 32-byte boundary. Valid only for object files.</summary>
+                AlignTo32Bytes = 0x00600000,
+                /// <summary>Align data on a 64-byte boundary. Valid only for object files.</summary>
+                AlignTo64Bytes = 0x00700000,
+                /// <summary>Align data on a 128-byte boundary. Valid only for object files.</summary>
+                AlignTo128Bytes = 0x00800000,
+                /// <summary>Align data on a 256-byte boundary. Valid only for object files.</summary>
+                AlignTo256Bytes = 0x00900000,
+                /// <summary>Align data on a 512-byte boundary. Valid only for object files.</summary>
+                AlignTo512Bytes = 0x00A00000,
+                /// <summary>Align data on a 1024-byte boundary. Valid only for object files.</summary>
+                AlignTo1024Bytes = 0x00B00000,
+                /// <summary>Align data on a 2048-byte boundary. Valid only for object files.</summary>
+                AlignTo2048Bytes = 0x00C00000,
+                /// <summary>Align data on a 4096-byte boundary. Valid only for object files.</summary>
+                AlignTo4096Bytes = 0x00D00000,
+                /// <summary>Align data on a 8192-byte boundary. Valid only for object files.</summary>
+                AlignTo8192Bytes = 0x00E00000,
+                /// <summary>The section contains extended relocations.</summary>
+                HasExtendedRelocations = 0x01000000,
+                /// <summary>The section can be discarded as needed.</summary>
+                Discardable = 0x02000000,
+                /// <summary>The section cannot be cached.</summary>
+                NotCacheable = 0x04000000,
+                /// <summary>The section is not pageable.</summary>
+                NotPageable = 0x08000000,
+                /// <summary>The section can be shared in memory.</summary>
+                Shareable = 0x10000000,
+                /// <summary>The section can be executed as code.</summary>
+                Executable = 0x20000000,
+                /// <summary>The section can be read.</summary>
+                Readable = 0x40000000,
+                /// <summary>The section can be written to.</summary>
+                Writable = 0x80000000
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct SectionMapEntry
         {
             internal _Flags Flags;
@@ -518,18 +648,6 @@ namespace PdbReader
                 /// <summary>If set, descriptor represents a group.</summary>
                 IsGroup = 0x0400
             }
-        }
-
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        internal struct EditAndContinueMappingHeader
-        {
-            internal const uint SignatureValue = 0xEFFEEFFE;
-
-            // Should be 0xEFFEEFFE
-            internal uint Signature;
-            internal uint Unkown1;
-            internal uint StringPoolBytesSize;
-            internal byte Unknown3;
         }
     }
 }

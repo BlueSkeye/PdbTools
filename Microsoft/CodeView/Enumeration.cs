@@ -17,7 +17,7 @@ namespace PdbReader.Microsoft.CodeView
                 ?? throw new ArgumentNullException(nameof(decoratedName));
         }
 
-        internal static Enumeration Create(PdbStreamReader reader, IndexedStream stream)
+        internal static Enumeration Create(PdbStreamReader reader)
         {
             return new Enumeration(reader.Read<_Enumeration>(), reader.ReadNTBString(),
                 reader.ReadNTBString());

@@ -7,41 +7,63 @@ namespace PdbReader.Microsoft.CodeView
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     internal struct PointerBody
     {
+        private static readonly uint PointerBodySize = (uint)Marshal.SizeOf<PointerBody>();
+
         internal LEAF_ENUM_e leaf; // LF_POINTER
         // type index of the underlying type
         internal uint utype;
         internal Attributes attr;
 
-        internal static IPointer Create(PdbStreamReader reader, IndexedStream stream)
+        internal static IPointer Create(PdbStreamReader reader, IndexedStream stream,
+            uint recordLength)
         {
+            if (PointerBodySize > recordLength) {
+                throw new PDBFormatException("Invalid record length.");
+            }
             uint startOffset = reader.Offset;
             PointerBody rawBody = reader.Read<PointerBody>();
             if (LEAF_ENUM_e.Pointer != rawBody.leaf) {
                 throw new PDBFormatException(
                     $"Invalid leaf identifier {rawBody.leaf} found on pointer body.");
             }
-            switch (rawBody.GetPointerType()) {
+            CV_ptrtype_e pointerType = rawBody.GetPointerType();
+            switch (pointerType) {
                 case CV_ptrtype_e.SegmentBased:
-                    return SegmentBasedPointer.Create(reader, startOffset);
+                    return SegmentBasedPointer.Create(reader, rawBody);
                 case CV_ptrtype_e.TypeBased:
-                    return TypeBasedPointer.Create(reader, startOffset);
+                    return TypeBasedPointer.Create(reader, rawBody);
                 default:
                     switch (rawBody.GetPointerMode()) {
                         case CV_ptrmode_e.PointerToMember:
                         case CV_ptrmode_e.PointerToMemberFunction:
-                            return PointerToMember.Create(reader, startOffset);
+                            return PointerToMember.Create(reader, rawBody);
                         default:
-                            return Pointer.Create(stream, reader, rawBody);
+                            uint remainingBytes = (uint)(recordLength - PointerBodySize);
+                            return Pointer.Create(stream, reader, rawBody, remainingBytes);
                     }
             }
         }
 
-        internal CV_ptrmode_e GetPointerMode() => (CV_ptrmode_e)(((ulong)attr >> 5) & 0x07);
+        internal CV_ptrmode_e GetPointerMode()
+        {
+            CV_ptrmode_e result = (CV_ptrmode_e)(((ulong)attr >> 5) & 0x07);
+            if (5 < (byte)result) {
+                throw new PDBFormatException($"Unknown pointer mode found 0x{result:X2}");
+            }
+            return result;
+        }
 
         /// <summary>Get pointer size in bytes.</summary>
         internal uint GetPointerSize() => (uint)((((ulong)attr) >> 13) & 0x3F);
 
-        internal CV_ptrtype_e GetPointerType() => (CV_ptrtype_e)((ulong)attr & 0x1F);
+        internal CV_ptrtype_e GetPointerType()
+        {
+            CV_ptrtype_e result = (CV_ptrtype_e)((ulong)attr & 0x1F);
+            if (0x0C < (byte)result) {
+                throw new PDBFormatException($"Unknown pointer type value 0x{((byte)result):X2}");
+            }
+            return result;
+        }
 
         [Flags()]
         internal enum Attributes : uint

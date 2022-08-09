@@ -27,7 +27,7 @@ namespace PdbReader
             // read below will modify the global offset BEFORE reading the first byte.
             // Hence capturing global offset now would provide an erroneous result.
             IStreamGlobalOffset recordStartGlobalOffset = _reader.GetGlobalOffset(true);
-            // WARNING : This offset must be capture AFTER the previous call which may have
+            // WARNING : This offset must be captured AFTER the previous call which may have
             // modified the offset value.
             uint recordStartOffset = _reader.Offset;
             // The record length is the total number of bytes for this record EXCLUDING
@@ -37,7 +37,6 @@ namespace PdbReader
             IStreamGlobalOffset recordEndGlobalOffsetExcluded = 
                 recordStartGlobalOffset.Add(recordTotalLength);
             uint recordEndOffsetExcluded = recordStartOffset + recordTotalLength;
-            bool allowExtraBytes = false;
             LEAF_ENUM_e recordKind;
             LoadRecord(recordIdentifier, recordLength, out recordKind);
             IStreamGlobalOffset currentGlobalOffset = _reader.GetGlobalOffset();
@@ -45,7 +44,7 @@ namespace PdbReader
             if (currentOffset < recordEndOffsetExcluded) {
                 uint ignoredBytesCount = recordEndOffsetExcluded - currentOffset;
                 bool doNotWarnOnReset = false;
-                if (!allowExtraBytes || (sizeof(uint) <= ignoredBytesCount)) {
+                if (sizeof(uint) <= ignoredBytesCount) {
                     // Emit warning when extra bytes count is greater or equal to word size
                     // or if extra bytes are not explictly allowed.
                     // This should be an incomplete decoding indicator.
@@ -57,16 +56,19 @@ namespace PdbReader
                 }
                 else {
                     doNotWarnOnReset = true;
-                    Console.WriteLine($"DBG : {recordKind} record #{recordIdentifier} fully decoded.");
+                    if (_owner.FullDecodingDebugEnabled) {
+                        Console.WriteLine($"DBG : {recordKind} record #{recordIdentifier} fully decoded.");
+                    }
                 }
                 // Adjust reader position.
                 _reader.SetGlobalOffset(recordEndGlobalOffsetExcluded, doNotWarnOnReset);
             }
             else if (currentOffset > recordEndOffsetExcluded) {
+                // 
                 uint excessBytesCount = currentOffset - recordEndOffsetExcluded;
                 Console.WriteLine(
-                    $"ERROR : {recordKind} record #{recordIdentifier} starting 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
-                    $"Should have ended at 0x{recordEndGlobalOffsetExcluded:X8}/{recordEndOffsetExcluded} : consumed {excessBytesCount} bytes in excess");
+                    $"WARN : {recordKind} record #{recordIdentifier} starting 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
+                    $"Should have ended at 0x{recordEndGlobalOffsetExcluded.Value:X8}/{recordEndOffsetExcluded} : consumed {excessBytesCount} bytes in excess");
                 // Adjust reader position.
                 _reader.SetGlobalOffset(recordEndGlobalOffsetExcluded);
             }
@@ -81,18 +83,25 @@ namespace PdbReader
         internal virtual object LoadRecord(uint recordIdentifier, uint recordLength,
             out LEAF_ENUM_e recordKind)
         {
+            // Most if not all definitions are from CVINFO.H
             recordKind = (LEAF_ENUM_e)_reader.PeekUInt16();
             switch (recordKind) {
                 case LEAF_ENUM_e.ArgumentList:
                     return ArgumentList.Create(_reader);
                 case LEAF_ENUM_e.Array:
                     return CodeViewArray.Create(_reader);
+                case LEAF_ENUM_e.Array16Bits:
+                    return CodeViewArray16Bits.Create(_reader);
+                case LEAF_ENUM_e.BClass:
+                    return BaseClass.Create(_reader);
                 case LEAF_ENUM_e.BitField:
                     return BitField.Create(_reader);
                 case LEAF_ENUM_e.BuildInformation:
                     return BuildInformation.Create(_reader);
+                case LEAF_ENUM_e.Class:
+                    return Class.Create(_reader, recordLength);
                 case LEAF_ENUM_e.Enum:
-                    return Enumeration.Create(_reader, this);
+                    return Enumeration.Create(_reader);
                 case LEAF_ENUM_e.Enumerate:
                     return Enumerate.Create(_reader);
                 case LEAF_ENUM_e.FieldList:
@@ -103,21 +112,39 @@ namespace PdbReader
                     return _reader.Read<Label>();
                 case LEAF_ENUM_e.Member:
                     return Member.Create(_reader);
+                case LEAF_ENUM_e.Method:
+                    return Method.Create(_reader);
+                case LEAF_ENUM_e.MethodList:
+                    return MethodList.Create(this, recordLength);
+                case LEAF_ENUM_e.MFunction:
+                    return MemberFunction.Create(_reader);
                 case LEAF_ENUM_e.Modifier:
                     return _reader.Read<Modifier>();
+                case LEAF_ENUM_e.NestedType:
+                    return NestedType.Create(_reader);
+                case LEAF_ENUM_e.OneMethod:
+                    return OneMethod.Create(_reader);
                 case LEAF_ENUM_e.Pointer:
-                    // Remaining bytes may be present that are name chars related.S
-                    return (IPointer)PointerBody.Create(_reader, this);
+                    // Remaining bytes may be present that are name chars related.
+                    return (IPointer)PointerBody.Create(_reader, this, recordLength);
                 case LEAF_ENUM_e.Procedure:
                     return _reader.Read<Procedure>();
+                case LEAF_ENUM_e.STMember:
+                    return StaticMember.Create(_reader);
                 case LEAF_ENUM_e.StringIdentifier:
                     return StringIdentifier.Create(_reader);
                 case LEAF_ENUM_e.Structure:
-                    return Class.Create(_reader);
+                    return Class.Create(_reader, recordLength);
+                case LEAF_ENUM_e.SubstringList:
+                    return SubstringList.Create(_reader);
+                case LEAF_ENUM_e.UDTModuleSourceLine:
+                    return UDTModuleSourceLine.Create(_reader);
                 case LEAF_ENUM_e.UDTSourceLine:
                     return UDTSourceLine.Create(_reader);
                 case LEAF_ENUM_e.Union:
                     return Union.Create(_reader);
+                case LEAF_ENUM_e.VFunctionTAB:
+                    return VirtualFunctionTablePointer.Create(_reader);
                 case LEAF_ENUM_e.VirtualTableShape:
                     return VirtualTableShape.Create(_reader);
                 default:
