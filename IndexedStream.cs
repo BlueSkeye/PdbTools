@@ -118,6 +118,8 @@ namespace PdbReader
                     return MethodList.Create(this, recordLength);
                 case LEAF_ENUM_e.MFunction:
                     return MemberFunction.Create(_reader);
+                case LEAF_ENUM_e.MFunctionIdentifier:
+                    return MemberFunctionIdentifier.Create(_reader);
                 case LEAF_ENUM_e.Modifier:
                     return _reader.Read<Modifier>();
                 case LEAF_ENUM_e.NestedType:

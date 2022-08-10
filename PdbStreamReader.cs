@@ -150,7 +150,10 @@ namespace PdbReader
 
         internal void HandlePadding(out uint paddingSize)
         {
-            const uint WordBytesCount = 4;
+            if (_endOfStreamReached) {
+                paddingSize = 0;
+                return;
+            }
             // Initially we tought padding would aling on a world boundary.
             // However it appears this doesn't always stand. So we can't
             // compute expected padding size ahead of time as we did until
@@ -196,6 +199,10 @@ namespace PdbReader
         
         private bool MoveToNextBlockAllowEndOfStream()
         {
+            if (_endOfStreamReached) {
+                _currentBlockIndex = 1 + _currentBlockIndex;
+                return false;
+            }
             if ((1 + _currentBlockIndex) >= _blocks.Length) {
                 _endOfStreamReached = true;
                 _currentBlockIndex += 1;
@@ -333,24 +340,38 @@ namespace PdbReader
         internal string ReadNTBString()
         {
             uint consumedBytes;
-            return ReadNTBString(out consumedBytes);
+            return ReadNTBString(uint.MaxValue, out consumedBytes);
         }
 
-        internal string ReadNTBString(out uint consumedBytes)
+        internal string ReadNTBString(uint maxLength)
+        {
+            uint consumedBytes;
+            return ReadNTBString(maxLength, out consumedBytes);
+        }
+
+        internal string ReadNTBString(uint maxLength, out uint consumedBytes)
         {
             AssertNotEndOfStream();
             List<byte> bytes = new List<byte>();
             consumedBytes = 0;
-            while (true) {
+            while (!_endOfStreamReached && (consumedBytes < maxLength)) {
                 byte inputByte = ReadByte();
                 if (0 == inputByte) {
                     // Sometimes, multiple NTBs may appear at end of string.
-                    if (0 != PeekByte()) {
+                    // We may have reached end of stream so we wouldn't be able to peek
+                    // next byte.
+                    if (!_endOfStreamReached && (0 != PeekByte())) {
                         break;
                     }
                 }
-                bytes.Add(inputByte);
+                else {
+                    // We don't want to add the NULL terminator to the string.
+                    bytes.Add(inputByte);
+                }
                 consumedBytes++;
+            }
+            if (_endOfStreamReached) {
+                bool doBreak = true;
             }
             string result = Encoding.UTF8.GetString(bytes.ToArray());
             // It looks like some but not all NTB strings are further padded with additional
@@ -364,7 +385,14 @@ namespace PdbReader
 
         internal ulong ReadVariableLengthValue()
         {
+            uint consumedBytes;
+            return ReadVariableLengthValue(out consumedBytes);
+        }
+
+        internal ulong ReadVariableLengthValue(out uint consumedBytes)
+        {
             ulong firstWord = ReadUInt16();
+            consumedBytes = sizeof(ushort);
             if (0 == (0x8000 & firstWord)) {
                 // Fast track.
                 return firstWord;
@@ -376,6 +404,7 @@ namespace PdbReader
             }
             while (0 < bytesCount) {
                 ushort input = ReadUInt16();
+                consumedBytes += sizeof(ushort);
                 if (2 <= bytesCount) {
                     result += (ulong)input << 16;
                     bytesCount -= 2;
@@ -451,6 +480,11 @@ namespace PdbReader
             }
             HandleEndOfBlock();
             return result;
+        }
+
+        internal uint ReadUInt16AndCastToUInt32()
+        {
+            return (uint)ReadUInt16();
         }
 
         internal uint ReadUInt32()

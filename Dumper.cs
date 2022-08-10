@@ -16,12 +16,13 @@ namespace PdbDumper
                 return 1;
             }
             Pdb.TraceFlags traceFlags =
-                Pdb.TraceFlags.FullDecodingDebug |
+                // Pdb.TraceFlags.FullDecodingDebug |
                 Pdb.TraceFlags.StreamDirectoryBlocks
                 ;
 
-            try {
-                foreach (FileInfo scannedPdb in _allFiles) {
+            foreach (FileInfo scannedPdb in _allFiles) {
+                try {
+                    Console.WriteLine($"INFO : Loading PDB file {scannedPdb.FullName}.");
                     Pdb pdb = new Pdb(scannedPdb,  traceFlags, true);
                     Console.WriteLine($"INFO : PDB file {scannedPdb.FullName} successfully loaded.");
                     LoadDBIStream(pdb);
@@ -29,8 +30,8 @@ namespace PdbDumper
                     LoadIPIStream(pdb);
                     Console.WriteLine($"INFO : PDB file {scannedPdb.FullName} successfully scanned.");
                 }
+                catch (Exception e) { throw; }
             }
-            catch (Exception e) { throw; }
             return 0;
         }
 

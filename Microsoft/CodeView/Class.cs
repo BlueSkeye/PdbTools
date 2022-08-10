@@ -36,11 +36,16 @@ namespace PdbReader.Microsoft.CodeView
             if (sizeof(ushort) < remainingBytes) {
                 // TODO : Understand why sometimes there is a single byte 0xF3
                 // for example that can't strictly be considered padding.
-                ulong unknown = reader.ReadVariableLengthValue();
+                uint consumedBytes;
+                ulong unknown = reader.ReadVariableLengthValue(out consumedBytes);
                 result._unknown = unknown;
-                if ((reader.Offset - startOffset) < recordLength) {
+                if (consumedBytes > remainingBytes) {
+                    throw new BugException();
+                }
+                remainingBytes -= consumedBytes;
+                if (0 < remainingBytes) {
                     // We must expect an additional decorated name.
-                    result._decoratedName = reader.ReadNTBString();
+                    result._decoratedName = reader.ReadNTBString(remainingBytes);
                 }
             }
             return result;

@@ -3,7 +3,7 @@
     "PdbReader Debug|X64": {
       "commandName": "Executable",
       "executablePath": "C:\\Users\\jp.forestier\\source\\repos\\PERSO\\PDB\\PdbReader\\bin\\x64\\Debug\\net6.0\\PdbDumper.exe",
-      "commandLineArgs": "%USERPROFILE%\\AppData\\Local\\Temp\\SymbolCache\\vcruntime140d.i386.pdb\\09A50E98E3044DD7B1952A885E6A73E91\\vcruntime140d.i386.pdb"
+      "commandLineArgs": "-cached %USERPROFILE%\\AppData\\Local\\Temp\\SymbolCache"
     },
     "PdbDumper Debug|X64": {
       "commandName": "Project",

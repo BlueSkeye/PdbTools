@@ -98,7 +98,8 @@ namespace PdbReader
                 Console.WriteLine(
                     $"At offset global/relative 0x{_reader.GetGlobalOffset().Value:X8} / 0x{(stringPoolRelativeOffset):X8}");
                 uint consumedBytes;
-                string input = _reader.ReadNTBString(out consumedBytes);
+                uint remainingPoolBytes = header.StringPoolBytesSize - stringPoolRelativeOffset;
+                string input = _reader.ReadNTBString(remainingPoolBytes, out consumedBytes);
                 stringPoolRelativeOffset += consumedBytes;
                 Console.WriteLine($"\t#{stringIndex++} : {input}");
             }
@@ -124,14 +125,19 @@ namespace PdbReader
             // field of the is simply ignored, and computed dynamically by summing up the
             // values of the ModFileCounts array (discussed below). In short, this value
             // should be ignored.
-            ushort sourceFilesCount = _reader.ReadUInt16();
+            // NOTE : This value will later be adjusted for 64K carry.
+            uint sourceFilesCount = _reader.ReadUInt16();
             // This array is present, but does not appear to be useful. Values are in increasing
             // order. Last ones may be equal to sourceFilesCount. This may suggest that the
             // indice for module X is the index of the first participating file for this module.
             // Modules where moduleIndices value equals sourceFilesCount would be modules with
             // no associated file.
-            ushort[] moduleIndices = new ushort[modulesCount];
-            _reader.ReadArray(moduleIndices, _reader.ReadUInt16);
+            // NOTE : In PDB file, module indices are defined as ushort values. However, the total
+            // number of files may be greater than 64K, so we must extend to an uint values array
+            // and later adjust for carry.
+            uint[] moduleIndices = new uint[modulesCount];
+            _reader.ReadArray(moduleIndices, _reader.ReadUInt16AndCastToUInt32);
+
             // An array of NumModules integers, each one containing the number of source
             // files which contribute to the module at the specified index. While each
             // individual module is limited to 64K contributing source files, the union of
@@ -141,6 +147,16 @@ namespace PdbReader
             // source file contributions to modules.
             ushort[] moduleFilesCount = new ushort[modulesCount];
             _reader.ReadArray(moduleFilesCount, _reader.ReadUInt16);
+
+            // Perform adjusting for 64K values addition carry as explained above ...
+            uint totalValue = 0;
+            for(int index = 0; index < modulesCount; index++) {
+                moduleIndices[index] += (totalValue & 0xFFFF0000);
+                totalValue += moduleFilesCount[index];
+            }
+            // ... also perform total source file count adjustment.
+            sourceFilesCount += (totalValue & 0xFFFF0000);
+
             // NOTE : modulesIndices and moduleFilesCount arrays should match, that is for
             // module X : modulesIndices[X+1] - moduleIndices[X] == moduleFilesCount[X]
             uint realFileCount = 0;
@@ -154,8 +170,7 @@ namespace PdbReader
                     throw new PDBFormatException(
                         $"Module #{checkIndex} first file indice is greater than next module's one.");
                 }
-                expectedFilesCount = (uint)moduleIndices[checkIndex + 1] -
-                    (uint)moduleIndices[checkIndex];
+                expectedFilesCount = moduleIndices[checkIndex + 1] - moduleIndices[checkIndex];
                 if (expectedFilesCount != moduleFilesCount[checkIndex]) {
                     throw new PDBFormatException($"Module #{checkIndex} is expected to have {expectedFilesCount} files. Modules file count value is {moduleFilesCount[checkIndex]}");
                 }
@@ -263,7 +278,8 @@ namespace PdbReader
         private List<T> LoadOptionalStream<T>(ushort? streamIndex, string streamName)
             where T : struct
         {
-            PdbStreamReader streamReader = new PdbStreamReader(_owner, streamIndex.Value);
+            PdbStreamReader streamReader = new PdbStreamReader(_owner,
+                streamIndex ?? throw new ArgumentNullException());
             List<T> result = new List<T>();
             while (streamReader.Offset < streamReader.StreamSize) {
                 T thisItem = streamReader.Read<T>();
@@ -303,10 +319,24 @@ namespace PdbReader
                 throw new NotImplementedException();
             }
             if (null != _xdataStreamIndex) {
-                throw new NotImplementedException();
+                // TODO : Should find exact format for this stream that doesn't look like being
+                // well documented.
+
+                //// A copy of the .xdata section from the executable.
+                //PdbStreamReader streamReader = new PdbStreamReader(_owner, _xdataStreamIndex.Value);
+                //List<UnwindData> result = new List<UnwindData>();
+                //while (streamReader.Offset < streamReader.StreamSize) {
+                //    UnwindData thisItem = UnwindData.Create(streamReader);
+                //    result.Add(thisItem);
+                //}
+                //if (streamReader.Offset != streamReader.StreamSize) {
+                //    throw new PDBFormatException($"Invalid Exception Data stream format.");
+                //}
             }
             if (null != _pdataStreamIndex) {
-                throw new NotImplementedException();
+                // TODO : Format is poorly or not documented.
+
+                // throw new NotImplementedException();
             }
             if (null != _newFPODataStreamIndex) {
                 List<_FPO_DATA> result = LoadOptionalStream<_FPO_DATA>(_newFPODataStreamIndex, "New FPO Data");
@@ -315,6 +345,10 @@ namespace PdbReader
                 throw new NotImplementedException();
             }
             return;
+        }
+
+        private struct UNWIND_INFO
+        {
         }
 
         public void LoadSectionContributions()
