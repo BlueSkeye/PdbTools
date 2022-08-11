@@ -14,14 +14,16 @@ namespace PdbReader.Microsoft.CodeView
             _leaf = leaf;
         }
         
-        internal static FieldList Create(IndexedStream stream, uint recordLength)
+        internal static FieldList Create(IndexedStream stream, ref uint maxLength)
         {
             PdbStreamReader reader = stream._reader;
-            uint endOffsetExcluded = recordLength + reader.Offset;
+            uint endOffsetExcluded = maxLength + reader.Offset;
             FieldList result = new FieldList((LEAF_ENUM_e)reader.ReadUInt16());
-            while (endOffsetExcluded > reader.Offset) {
+            Utils.SafeDecrement(ref maxLength, sizeof(ushort));
+            while (0 < maxLength) {
                 LEAF_ENUM_e recordKind;
-                object memberRecord = stream.LoadRecord(uint.MinValue, 0, out recordKind);
+                object memberRecord = stream.LoadRecord(uint.MinValue, ref maxLength,
+                    out recordKind);
                 result._members.Add((INamedItem)memberRecord);
             }
             if (endOffsetExcluded != reader.Offset) {

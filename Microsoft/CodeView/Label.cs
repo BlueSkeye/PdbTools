@@ -5,6 +5,7 @@ namespace PdbReader.Microsoft.CodeView
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     internal struct Label
     {
+        internal static readonly uint Size = (uint)Marshal.SizeOf<Label>();
         internal LEAF_ENUM_e leaf; // LF_LABEL
         internal CV_LABEL_TYPE_e mode; // addressing mode of label
 

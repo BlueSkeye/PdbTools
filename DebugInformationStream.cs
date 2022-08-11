@@ -49,7 +49,10 @@ namespace PdbReader
         private ushort? GetOptionalStreamIndex()
         {
             ushort input = _reader.ReadUInt16();
-            return (ushort.MaxValue == input) ? null : input;
+            // Invalid indexes are sometimes (-1) which equals to uint.MaxValue or
+            // a 0 value which being one of the fixed stream indexes (Old Directory)
+            // is obviously an invalid value.
+            return ((0 == input) || (ushort.MaxValue == input)) ? null : input;
         }
 
         private void LoadOptionalStreamsIndex()
@@ -93,14 +96,12 @@ namespace PdbReader
 
             uint stringIndex = 0;
             uint stringPoolStartOffset = _reader.Offset;
-            uint stringPoolRelativeOffset = 0;
-            while (stringPoolRelativeOffset < header.StringPoolBytesSize) {
+            uint remainingPoolBytes = header.StringPoolBytesSize;
+            while (0 < remainingPoolBytes) {
+                uint stringPoolRelativeOffset = _reader.Offset - stringPoolStartOffset;
                 Console.WriteLine(
                     $"At offset global/relative 0x{_reader.GetGlobalOffset().Value:X8} / 0x{(stringPoolRelativeOffset):X8}");
-                uint consumedBytes;
-                uint remainingPoolBytes = header.StringPoolBytesSize - stringPoolRelativeOffset;
-                string input = _reader.ReadNTBString(remainingPoolBytes, out consumedBytes);
-                stringPoolRelativeOffset += consumedBytes;
+                string input = _reader.ReadNTBString(ref remainingPoolBytes);
                 Console.WriteLine($"\t#{stringIndex++} : {input}");
             }
             uint mappingRelativeOffset = _reader.Offset - (uint)mappingStartOffset;
@@ -159,9 +160,9 @@ namespace PdbReader
 
             // NOTE : modulesIndices and moduleFilesCount arrays should match, that is for
             // module X : modulesIndices[X+1] - moduleIndices[X] == moduleFilesCount[X]
-            uint realFileCount = 0;
             int upperCheckBound = modulesCount - 1;
             // We should take for granted the file count of the last module.
+            uint realFileCount = moduleFilesCount[upperCheckBound];
             for (int checkIndex = 0; checkIndex < upperCheckBound; checkIndex++) {
                 realFileCount += moduleFilesCount[checkIndex];
 #if DEBUG
@@ -206,7 +207,8 @@ namespace PdbReader
                 }
 #endif
                 _reader.Offset = filenameBaseOffset + candidateOffset;
-                string filename = _reader.ReadNTBString();
+                uint maxStringLength = ushort.MaxValue;
+                string filename = _reader.ReadNTBString(ref maxStringLength);
                 fileNameByIndex.Add(candidateOffset, filename);
 #if DEBUG
                 Console.WriteLine($"Added #{fileNameByIndex.Count} '{filename}' Offset 0x{candidateOffset:X8}");
@@ -278,17 +280,24 @@ namespace PdbReader
         private List<T> LoadOptionalStream<T>(ushort? streamIndex, string streamName)
             where T : struct
         {
-            PdbStreamReader streamReader = new PdbStreamReader(_owner,
+            PdbStreamReader reader = new PdbStreamReader(_owner,
                 streamIndex ?? throw new ArgumentNullException());
             List<T> result = new List<T>();
-            while (streamReader.Offset < streamReader.StreamSize) {
-                T thisItem = streamReader.Read<T>();
+            while (reader.Offset < reader.StreamSize) {
+                T thisItem = reader.Read<T>();
                 result.Add(thisItem);
             }
-            if (streamReader.Offset != streamReader.StreamSize) {
+            if (reader.Offset != reader.StreamSize) {
                 throw new PDBFormatException($"Invalid {streamName} stream format.");
             }
             return result;
+        }
+
+        private void LoadExceptionDataStream()
+        {
+            // TODO : Structure of this stream is unclear.
+            PdbStreamReader reader = new PdbStreamReader(_owner,
+                _exceptionDataStreamIndex ?? throw new ArgumentNullException());
         }
 
         public void LoadOptionalStreams()
@@ -298,17 +307,19 @@ namespace PdbReader
                 List<_FPO_DATA> result = LoadOptionalStream<_FPO_DATA>(_fpoDataStreamIndex, "FPO Data");
             }
             if (null != _exceptionDataStreamIndex) {
-                throw new NotImplementedException();
+                LoadExceptionDataStream();
             }
             if (null != _fixupDataStreamIndex) {
                 List<_FIXUP_DATA> result = LoadOptionalStream<_FIXUP_DATA>(_fixupDataStreamIndex,
                     "Fixup Data");
             }
             if (null != _omapToSourceMappingStreamIndex) {
-                throw new NotImplementedException();
+                // TODO : Stream content is undocumented.
+                // throw new NotImplementedException();
             }
             if (null != _omapFromSourceMappingStreamIndex) {
-                throw new NotImplementedException();
+                // TODO : Stream content is undocumented.
+                // throw new NotImplementedException();
             }
             if (null != _sectionHeaderDataStreamIndex) {
                 // Dump of all section headers from the original file.
@@ -316,7 +327,8 @@ namespace PdbReader
                     "Section Headers");
             }
             if (null != _tokenToRIDMappingStreamIndex) {
-                throw new NotImplementedException();
+                // TODO : Stream content is undocumented.
+                // throw new NotImplementedException();
             }
             if (null != _xdataStreamIndex) {
                 // TODO : Should find exact format for this stream that doesn't look like being
@@ -335,14 +347,14 @@ namespace PdbReader
             }
             if (null != _pdataStreamIndex) {
                 // TODO : Format is poorly or not documented.
-
                 // throw new NotImplementedException();
             }
             if (null != _newFPODataStreamIndex) {
                 List<_FPO_DATA> result = LoadOptionalStream<_FPO_DATA>(_newFPODataStreamIndex, "New FPO Data");
             }
             if (null != _originalSectionHeaderDataStreamIndex) {
-                throw new NotImplementedException();
+                // TODO : Stream content is undocumented.
+                // throw new NotImplementedException();
             }
             return;
         }

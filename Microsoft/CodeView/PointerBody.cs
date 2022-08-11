@@ -7,7 +7,7 @@ namespace PdbReader.Microsoft.CodeView
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     internal struct PointerBody
     {
-        private static readonly uint PointerBodySize = (uint)Marshal.SizeOf<PointerBody>();
+        private static readonly uint Size = (uint)Marshal.SizeOf<PointerBody>();
 
         internal LEAF_ENUM_e leaf; // LF_POINTER
         // type index of the underlying type
@@ -15,13 +15,14 @@ namespace PdbReader.Microsoft.CodeView
         internal Attributes attr;
 
         internal static IPointer Create(PdbStreamReader reader, IndexedStream stream,
-            uint recordLength)
+            ref uint maxLength)
         {
-            if (PointerBodySize > recordLength) {
+            if (Size > maxLength) {
                 throw new PDBFormatException("Invalid record length.");
             }
             uint startOffset = reader.Offset;
             PointerBody rawBody = reader.Read<PointerBody>();
+            Utils.SafeDecrement(ref maxLength, PointerBody.Size);
             if (LEAF_ENUM_e.Pointer != rawBody.leaf) {
                 throw new PDBFormatException(
                     $"Invalid leaf identifier {rawBody.leaf} found on pointer body.");
@@ -29,17 +30,16 @@ namespace PdbReader.Microsoft.CodeView
             CV_ptrtype_e pointerType = rawBody.GetPointerType();
             switch (pointerType) {
                 case CV_ptrtype_e.SegmentBased:
-                    return SegmentBasedPointer.Create(reader, rawBody);
+                    return SegmentBasedPointer.Create(reader, rawBody, ref maxLength);
                 case CV_ptrtype_e.TypeBased:
-                    return TypeBasedPointer.Create(reader, rawBody);
+                    return TypeBasedPointer.Create(reader, rawBody, ref maxLength);
                 default:
                     switch (rawBody.GetPointerMode()) {
                         case CV_ptrmode_e.PointerToMember:
                         case CV_ptrmode_e.PointerToMemberFunction:
-                            return PointerToMember.Create(reader, rawBody);
+                            return PointerToMember.Create(reader, rawBody, ref maxLength);
                         default:
-                            uint remainingBytes = (uint)(recordLength - PointerBodySize);
-                            return Pointer.Create(stream, reader, rawBody, remainingBytes);
+                            return Pointer.Create(stream, reader, rawBody, ref maxLength);
                     }
             }
         }

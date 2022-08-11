@@ -12,7 +12,7 @@ namespace PdbReader.Microsoft.CodeView
         public PointerBody Body => _body;
 
         internal static Pointer Create(IndexedStream stream, PdbStreamReader reader,
-            PointerBody body, uint remainingBytes)
+            PointerBody body, ref uint maxLength)
         {
             Pointer result = new Pointer() {
                 _body = body
@@ -24,9 +24,10 @@ namespace PdbReader.Microsoft.CodeView
             //if (reader.Offset != endOffsetExcluded) {
             //    throw new BugException("Invalid decoding of pointed to symbol.");
             //}
-            if (0 < remainingBytes) {
-                result._symbolData = new byte[remainingBytes];
+            if (0 < maxLength) {
+                result._symbolData = new byte[maxLength];
                 reader.ReadArray<byte>(result._symbolData, reader.ReadByte);
+                maxLength = 0;
             }
             return result;
         }

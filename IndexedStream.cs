@@ -32,13 +32,13 @@ namespace PdbReader
             uint recordStartOffset = _reader.Offset;
             // The record length is the total number of bytes for this record EXCLUDING
             // the 2 bytes of the recordLength field itself.
-            ushort recordLength = _reader.ReadUInt16();
+            uint recordLength = _reader.ReadUInt16();
             uint recordTotalLength = (uint)(recordLength + sizeof(ushort));
             IStreamGlobalOffset recordEndGlobalOffsetExcluded = 
                 recordStartGlobalOffset.Add(recordTotalLength);
             uint recordEndOffsetExcluded = recordStartOffset + recordTotalLength;
             LEAF_ENUM_e recordKind;
-            LoadRecord(recordIdentifier, recordLength, out recordKind);
+            LoadRecord(recordIdentifier, ref recordLength, out recordKind);
             IStreamGlobalOffset currentGlobalOffset = _reader.GetGlobalOffset();
             uint currentOffset = _reader.Offset;
             if (currentOffset < recordEndOffsetExcluded) {
@@ -80,75 +80,78 @@ namespace PdbReader
             else { throw new BugException(); }
         }
 
-        internal virtual object LoadRecord(uint recordIdentifier, uint recordLength,
+        internal virtual object LoadRecord(uint recordIdentifier, ref uint recordLength,
             out LEAF_ENUM_e recordKind)
         {
             // Most if not all definitions are from CVINFO.H
             recordKind = (LEAF_ENUM_e)_reader.PeekUInt16();
             switch (recordKind) {
                 case LEAF_ENUM_e.ArgumentList:
-                    return ArgumentList.Create(_reader);
+                    return ArgumentList.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Array:
-                    return CodeViewArray.Create(_reader);
+                    return CodeViewArray.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Array16Bits:
-                    return CodeViewArray16Bits.Create(_reader);
+                    return CodeViewArray16Bits.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.BClass:
-                    return BaseClass.Create(_reader);
+                    return BaseClass.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.BitField:
-                    return BitField.Create(_reader);
+                    return BitField.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.BuildInformation:
-                    return BuildInformation.Create(_reader);
+                    return BuildInformation.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Class:
-                    return Class.Create(_reader, recordLength);
+                    return Class.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Enum:
-                    return Enumeration.Create(_reader);
+                    return Enumeration.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Enumerate:
-                    return Enumerate.Create(_reader);
+                    return Enumerate.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.FieldList:
-                    return FieldList.Create(this, recordLength);
+                    return FieldList.Create(this, ref recordLength);
                 case LEAF_ENUM_e.FunctionIdentifier:
-                    return FunctionIdentifier.Create(_reader);
+                    return FunctionIdentifier.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Label:
-                    return _reader.Read<Label>();
+                    try { return _reader.Read<Label>(); }
+                    finally { recordLength -= Label.Size; }
                 case LEAF_ENUM_e.Member:
-                    return Member.Create(_reader);
+                    return Member.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Method:
-                    return Method.Create(_reader);
+                    return Method.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.MethodList:
-                    return MethodList.Create(this, recordLength);
+                    return MethodList.Create(this, ref recordLength);
                 case LEAF_ENUM_e.MFunction:
-                    return MemberFunction.Create(_reader);
+                    return MemberFunction.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.MFunctionIdentifier:
-                    return MemberFunctionIdentifier.Create(_reader);
+                    return MemberFunctionIdentifier.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Modifier:
-                    return _reader.Read<Modifier>();
+                    try { return _reader.Read<Modifier>(); }
+                    finally { recordLength -= Modifier.Size; }
                 case LEAF_ENUM_e.NestedType:
-                    return NestedType.Create(_reader);
+                    return NestedType.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.OneMethod:
-                    return OneMethod.Create(_reader);
+                    return OneMethod.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Pointer:
                     // Remaining bytes may be present that are name chars related.
-                    return (IPointer)PointerBody.Create(_reader, this, recordLength);
+                    return (IPointer)PointerBody.Create(_reader, this, ref recordLength);
                 case LEAF_ENUM_e.Procedure:
-                    return _reader.Read<Procedure>();
+                    try { return _reader.Read<Procedure>(); }
+                    finally { recordLength -= Procedure.Size; }
                 case LEAF_ENUM_e.STMember:
-                    return StaticMember.Create(_reader);
+                    return StaticMember.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.StringIdentifier:
-                    return StringIdentifier.Create(_reader);
+                    return StringIdentifier.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Structure:
-                    return Class.Create(_reader, recordLength);
+                    return Class.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.SubstringList:
-                    return SubstringList.Create(_reader);
+                    return SubstringList.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.UDTModuleSourceLine:
-                    return UDTModuleSourceLine.Create(_reader);
+                    return UDTModuleSourceLine.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.UDTSourceLine:
-                    return UDTSourceLine.Create(_reader);
+                    return UDTSourceLine.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Union:
-                    return Union.Create(_reader);
+                    return Union.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.VFunctionTAB:
-                    return VirtualFunctionTablePointer.Create(_reader);
+                    return VirtualFunctionTablePointer.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.VirtualTableShape:
-                    return VirtualTableShape.Create(_reader);
+                    return VirtualTableShape.Create(_reader, ref recordLength);
                 default:
                     // TODO : Account for padding pseudo bytes.
                     // Handling should match description from include file (i.e. should only

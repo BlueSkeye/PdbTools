@@ -11,14 +11,16 @@ namespace PdbReader.Microsoft.CodeView
             _data = data;
         }
 
-        internal static VirtualTableShape Create(PdbStreamReader reader)
+        internal static VirtualTableShape Create(PdbStreamReader reader, ref uint maxLength)
         {
             _VirtualTableShape data = reader.Read<_VirtualTableShape>();
+            Utils.SafeDecrement(ref maxLength, _VirtualTableShape.Size);
             byte inputByte = 0;
             for(int index = 0; index < data.count; index++) {
                 CV_VTS_desc_e entry = 0;
                 if (0 == (index % 2)) {
                     inputByte = reader.ReadByte();
+                    Utils.SafeDecrement(ref maxLength, sizeof(byte));
                     entry = (CV_VTS_desc_e)(inputByte & 0x0F);
                 }
                 else {
@@ -29,13 +31,14 @@ namespace PdbReader.Microsoft.CodeView
                 }
             }
             // Some virtual table shapes appear to have padding bytes.
-            reader.HandlePadding();
+            Utils.SafeDecrement(ref maxLength, reader.HandlePadding(maxLength));
             return new VirtualTableShape(data);
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _VirtualTableShape
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<_VirtualTableShape>();
             internal LEAF_ENUM_e leaf; // LF_VTSHAPE
             internal ushort count; // number of entries in vfunctable
             // unsigned char desc[CV_ZEROLEN];     // 4 bit (CV_VTS_desc) descriptors

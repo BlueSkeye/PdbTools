@@ -12,18 +12,22 @@ namespace PdbReader.Microsoft.CodeView
 
         public string Name => _name;
 
-        internal static Enumerate Create(PdbStreamReader reader)
+        internal static Enumerate Create(PdbStreamReader reader, ref uint maxLength)
         {
             Enumerate result = new Enumerate();
             result._header = reader.Read<_Enumerate>();
-            result._enumerationValue = reader.ReadVariableLengthValue();
-            result._name = reader.ReadNTBString();
+            Utils.SafeDecrement(ref maxLength, _Enumerate.Size);
+            uint variantSize;
+            result._enumerationValue = (ulong)reader.ReadVariant(out variantSize);
+            Utils.SafeDecrement(ref maxLength, variantSize);
+            result._name = reader.ReadNTBString(ref maxLength);
             return result;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _Enumerate
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<_Enumerate>();
             internal LEAF_ENUM_e _leaf; // LF_ENUMERATE
             internal CV_fldattr_t attr; // attribute mask
         }

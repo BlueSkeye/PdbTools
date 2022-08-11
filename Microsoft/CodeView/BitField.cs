@@ -11,17 +11,19 @@ namespace PdbReader.Microsoft.CodeView
             _data = data;
         }
 
-        internal static BitField Create(PdbStreamReader reader)
+        internal static BitField Create(PdbStreamReader reader, ref uint maxLength)
         {
             _BitField data = reader.Read<_BitField>();
+            Utils.SafeDecrement(ref maxLength, _BitField.Size);
             // It looks like any BitField record is subject to padding.
-            reader.HandlePadding();
+            Utils.SafeDecrement(ref maxLength, reader.HandlePadding(maxLength));
             return new BitField(data);
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _BitField
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<_BitField>();
             internal LEAF_ENUM_e leaf; // LF_BITFIELD
             internal uint /*CV_typ_t*/ type; // type of bitfield
             internal byte length;

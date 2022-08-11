@@ -12,19 +12,23 @@ namespace PdbReader.Microsoft.CodeView
 
         public string Name => _name;
 
-        internal static Union Create(PdbStreamReader reader)
+        internal static Union Create(PdbStreamReader reader, ref uint maxLength)
         {
             Union result = new Union();
             result._data = reader.Read<_Union>();
-            result._unionLength = reader.ReadVariableLengthValue();
-            result._name = reader.ReadNTBString();
-            result._decoratedName = reader.ReadNTBString();
+            Utils.SafeDecrement(ref maxLength, _Union.Size);
+            uint variantLength;
+            result._unionLength = (ulong)reader.ReadVariant(out variantLength);
+            Utils.SafeDecrement(ref maxLength, variantLength);
+            result._name = reader.ReadNTBString(ref maxLength);
+            result._decoratedName = reader.ReadNTBString(ref maxLength);
             return result;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _Union
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<_Union>();
             internal LEAF_ENUM_e leaf; // LF_UNION
             internal ushort count; // count of number of elements in class
             internal CV_prop_t property; // property attribute field

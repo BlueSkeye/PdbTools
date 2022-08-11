@@ -7,12 +7,13 @@ namespace PdbReader.Microsoft.CodeView
         internal _ArgumentList _header;
         internal List<uint> _arguments = new List<uint>();
 
-        internal static ArgumentList Create(PdbStreamReader reader)
+        internal static ArgumentList Create(PdbStreamReader reader, ref uint maxLength)
         {
             ArgumentList result = new ArgumentList();
             result._header = reader.Read<_ArgumentList>();
             for (int index = 0; index < result._header.count; index++) {
                 result._arguments.Add(reader.ReadUInt32());
+                Utils.SafeDecrement(ref maxLength, sizeof(uint));
             }
             return result;
         }

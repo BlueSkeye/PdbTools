@@ -38,15 +38,29 @@ namespace PdbReader
         /// array is given by ceil(NumDirectoryBytes / BlockSize).</summary>
         internal uint BlockMapAddr;
 
-        internal void AssertSignature()
+        internal PdbKind AssertSignatureType(bool throwOnUnknown = true)
         {
-            if (   (0x666F736F7263694D != Magic1)
-                || (0x202B2B432F432074 != Magic2)
-                || (0x30302E372046534D != Magic3)
-                || (0x00000053441A0A0D != Magic4))
+            if (   (0x666F736F7263694D == Magic1)
+                && (0x202B2B432F432074 == Magic2)
+                && (0x30302E372046534D == Magic3)
+                && (0x00000053441A0A0D == Magic4))
             {
-                throw new PDBFormatException("Invalid signature.");
+                return PdbKind.Regular;
             }
+            if (0x424A5342 == (uint)Magic1) {
+                return PdbKind.DotNet;
+            }
+            if (!throwOnUnknown) {
+                return PdbKind.Undefined;
+            }
+            throw new PDBFormatException("Invalid signature.");
+        }
+
+        internal enum PdbKind
+        {
+            Undefined = 0x00,
+            Regular = 0x01,
+            DotNet = 0x02
         }
     }
 }

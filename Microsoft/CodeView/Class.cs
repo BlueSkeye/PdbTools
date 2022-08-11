@@ -20,32 +20,29 @@ namespace PdbReader.Microsoft.CodeView
             _decoratedName = null;
         }
 
-        internal static Class Create(PdbStreamReader reader, uint recordLength)
+        internal static Class Create(PdbStreamReader reader, ref uint maxLength)
         {
             uint startOffset = reader.Offset;
             _Class header = reader.Read<_Class>();
-            ulong structureSize = reader.ReadVariableLengthValue();
-            string itemName = reader.ReadNTBString();
+            Utils.SafeDecrement(ref maxLength, _Class.Size);
+            uint variantLength;
+            ulong structureSize = (ulong)reader.ReadVariant(out variantLength);
+            Utils.SafeDecrement(ref maxLength, variantLength);
+            string itemName = reader.ReadNTBString(ref maxLength);
             Class result = new Class(header, structureSize, itemName);
-            uint remainingBytes = recordLength + startOffset;
-            if (remainingBytes < reader.Offset) {
-                throw new PDBFormatException("Record length mismatch.");
-            }
-            remainingBytes -= reader.Offset;
             // The unknown value is optional.
-            if (sizeof(ushort) < remainingBytes) {
+            if (sizeof(ushort) < maxLength) {
                 // TODO : Understand why sometimes there is a single byte 0xF3
                 // for example that can't strictly be considered padding.
-                uint consumedBytes;
-                ulong unknown = reader.ReadVariableLengthValue(out consumedBytes);
+                ulong unknown = (ulong)reader.ReadVariant(out variantLength);
                 result._unknown = unknown;
-                if (consumedBytes > remainingBytes) {
+                if (variantLength > maxLength) {
                     throw new BugException();
                 }
-                remainingBytes -= consumedBytes;
-                if (0 < remainingBytes) {
+                Utils.SafeDecrement(ref maxLength, variantLength);
+                if (0 < maxLength) {
                     // We must expect an additional decorated name.
-                    result._decoratedName = reader.ReadNTBString(remainingBytes);
+                    result._decoratedName = reader.ReadNTBString(ref maxLength);
                 }
             }
             return result;
@@ -54,6 +51,7 @@ namespace PdbReader.Microsoft.CodeView
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _Class
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<_Class>();
             internal LEAF_ENUM_e leaf; // LF_CLASS, LF_STRUCT, LF_INTERFACE
             internal ushort count; // count of number of elements in class
             internal CV_prop_t property; // property attribute field (prop_t)

@@ -21,20 +21,24 @@ namespace PdbReader.Microsoft.CodeView
         
             public string Name => _name;
 
-        internal static Member Create(PdbStreamReader reader)
+        internal static Member Create(PdbStreamReader reader, ref uint maxLength)
         {
             Member result = new Member();
             result._member = reader.Read<_Member>();
+            Utils.SafeDecrement(ref maxLength, _Member.Size);
             /// Read field offset which is a variable length value.
             /// Algorithm is unclear and heuristically inferred.
-            result._fieldOffset = reader.ReadVariableLengthValue();
-            result._name = reader.ReadNTBString();
+            uint variantSize;
+            result._fieldOffset = (ulong)reader.ReadVariant(out variantSize);
+            Utils.SafeDecrement(ref maxLength, variantSize);
+            result._name = reader.ReadNTBString(ref maxLength);
             return result;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _Member
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<_Member>();
             internal LEAF_ENUM_e _leaf; // LF_MEMBER
             internal CV_fldattr_t attr; // attribute mask
             internal uint /*CV_typ_t*/ index; // index of type record for field

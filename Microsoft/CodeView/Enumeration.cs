@@ -17,15 +17,19 @@ namespace PdbReader.Microsoft.CodeView
                 ?? throw new ArgumentNullException(nameof(decoratedName));
         }
 
-        internal static Enumeration Create(PdbStreamReader reader)
+        internal static Enumeration Create(PdbStreamReader reader, ref uint maxLength)
         {
-            return new Enumeration(reader.Read<_Enumeration>(), reader.ReadNTBString(),
-                reader.ReadNTBString());
+            _Enumeration core = reader.Read<_Enumeration>();
+            Utils.SafeDecrement(ref maxLength, _Enumeration.Size);
+            string name = reader.ReadNTBString(ref maxLength);
+            string decoratedName = reader.ReadNTBString(ref maxLength);
+            return new Enumeration(core, name, decoratedName);
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _Enumeration
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<_Enumeration>();
             internal LEAF_ENUM_e leaf; // LF_ENUM
             internal ushort count; // count of number of elements in class
             internal CV_prop_t property; // property attribute field

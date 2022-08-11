@@ -13,13 +13,14 @@ namespace PdbReader.Microsoft.CodeView
             _leaf = leaf;
         }
 
-        internal static MethodList Create(IndexedStream stream, uint recordLength)
+        internal static MethodList Create(IndexedStream stream, ref uint maxLength)
         {
             PdbStreamReader reader = stream._reader;
-            uint endOffsetExcluded = recordLength + reader.Offset;
+            uint endOffsetExcluded = maxLength + reader.Offset;
             MethodList result = new MethodList((LEAF_ENUM_e)reader.ReadUInt16());
+            Utils.SafeDecrement(ref maxLength, sizeof(ushort));
             while (endOffsetExcluded > reader.Offset) {
-                result._members.Add(ListedMethod.Create(reader));
+                result._members.Add(ListedMethod.Create(reader, ref maxLength));
             }
             return result;
         }
@@ -30,13 +31,15 @@ namespace PdbReader.Microsoft.CodeView
             // unsigned long vbaseoff[CV_ZEROLEN];    // offset in vfunctable if intro virtual
             private uint _virtualFunctionTableOffset;
 
-            internal static ListedMethod Create(PdbStreamReader reader)
+            internal static ListedMethod Create(PdbStreamReader reader, ref uint maxLength)
             {
                 ListedMethod result = new ListedMethod() {
                     _method = reader.Read<_Method>()
                 };
+                Utils.SafeDecrement(ref maxLength, _Method.Size);
                 if (CV_methodprop_e.PureIntroduction == Utils.GetMethodProperties(result._method.attr)) {
                     result._virtualFunctionTableOffset = reader.ReadUInt32();
+                    Utils.SafeDecrement(ref maxLength, sizeof(uint));
                 }
                 return result;
             }
@@ -44,6 +47,7 @@ namespace PdbReader.Microsoft.CodeView
             [StructLayout(LayoutKind.Sequential, Pack = 1)]
             internal struct _Method
             {
+                internal static readonly uint Size = (uint)Marshal.SizeOf<_Method>();
                 internal CV_fldattr_t attr; // method attribute
                 internal ushort Pad0; // internal padding, must be 0
                 internal uint /*CV_typ_t*/ index; // index to type record for procedure

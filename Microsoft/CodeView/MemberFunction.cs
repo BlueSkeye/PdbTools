@@ -6,11 +6,12 @@ namespace PdbReader.Microsoft.CodeView
     {
         private _MemberFunction _memberFunction;
 
-        internal static MemberFunction Create(PdbStreamReader reader)
+        internal static MemberFunction Create(PdbStreamReader reader, ref uint maxLength)
         {
             MemberFunction result = new MemberFunction() {
                 _memberFunction = reader.Read<_MemberFunction>(),
             };
+            Utils.SafeDecrement(ref maxLength, _MemberFunction.Size);
             // result.Name = reader.ReadNTBString();
             return result;
         }
@@ -18,6 +19,7 @@ namespace PdbReader.Microsoft.CodeView
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _MemberFunction
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<_MemberFunction>();
             internal LEAF_ENUM_e leaf; // LF_MFUNCTION
             internal uint /*CV_typ_t*/ rvtype; // type index of return value
             internal uint /*CV_typ_t*/ classtype; // type index of containing class

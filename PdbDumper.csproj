@@ -35,6 +35,7 @@
   <ItemGroup>
     <ProjectReference Include="PdbReader.csproj">
       <CopyLocal>True</CopyLocal>
+      <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
 

@@ -13,17 +13,21 @@ namespace PdbReader.Microsoft.CodeView
             Arguments = new uint[Base.count];
         }
 
-        internal static BuildInformation Create(PdbStreamReader reader)
+        internal static BuildInformation Create(PdbStreamReader reader,
+            ref uint maxLength)
         {
             BuildInformation result = new BuildInformation(reader.Read<_InformationBase>());
+            Utils.SafeDecrement(ref maxLength, _InformationBase.Size);
             reader.ReadArray<uint>(result.Arguments, reader.ReadUInt32);
-            reader.HandlePadding();
+            Utils.SafeDecrement(ref maxLength, ((uint)result.Arguments.Length * sizeof(uint)));
+            Utils.SafeDecrement(ref maxLength, reader.HandlePadding(maxLength));
             return result;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _InformationBase
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<_InformationBase>();
             internal LEAF_ENUM_e leaf; // LF_BUILDINFO
             internal ushort count; // number of arguments
         }

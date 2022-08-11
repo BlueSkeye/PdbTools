@@ -6,19 +6,23 @@ namespace PdbReader.Microsoft.CodeView
     {
         internal PointerBody _body;
         // index of containing class for pointer to member
-        internal uint pmclass;
+        internal uint _pmclass;
         // enumeration specifying pm format (CV_pmtype_e)
-        internal CV_pmtype_e pmenum;
+        internal CV_pmtype_e _pmenum;
 
         public PointerBody Body => _body;
 
-        internal static PointerToMember Create(PdbStreamReader reader, PointerBody body)
+        internal static PointerToMember Create(PdbStreamReader reader, PointerBody body,
+            ref uint maxLength)
         {
+            uint pmClass = reader.ReadUInt32();
+            Utils.SafeDecrement(ref maxLength, sizeof(uint));
+            CV_pmtype_e pmenum = (CV_pmtype_e)reader.ReadUInt16();
+            Utils.SafeDecrement(ref maxLength, sizeof(ushort));
             PointerToMember result = new PointerToMember() {
                 _body = body,
-                pmclass = reader.ReadUInt32(),
-                pmenum = (CV_pmtype_e)reader.ReadUInt16()
-            };
+                _pmclass = pmClass,
+                _pmenum = pmenum };
             return result;
         }
     }

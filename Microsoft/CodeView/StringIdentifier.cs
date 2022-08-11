@@ -8,14 +8,13 @@ namespace PdbReader.Microsoft.CodeView
         internal _StringIdentifier Identifier { get; private set; }
         internal string Name { get; private set; }
 
-        internal static StringIdentifier Create(PdbStreamReader reader)
+        internal static StringIdentifier Create(PdbStreamReader reader, ref uint maxLength)
         {
-            if (0x000E8FCA == reader.GetGlobalOffset().Value) {
-                bool shouldBreak = true;
-            }
+            _StringIdentifier identifier = reader.Read<_StringIdentifier>();
+            Utils.SafeDecrement(ref maxLength, _StringIdentifier.Size);
             StringIdentifier result = new StringIdentifier() {
-                Identifier = reader.Read<_StringIdentifier>(),
-                Name = reader.ReadNTBString()
+                Identifier = identifier,
+                Name = reader.ReadNTBString(ref maxLength)
             };
             return result;
         }
@@ -23,6 +22,7 @@ namespace PdbReader.Microsoft.CodeView
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _StringIdentifier
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<_StringIdentifier>();
             internal LEAF_ENUM_e leaf; // LF_STRING_ID
             internal uint /*CV_ItemId*/ id; // ID to list of sub string IDs
         }

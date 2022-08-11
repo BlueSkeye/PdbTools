@@ -10,12 +10,14 @@ namespace PdbReader.Microsoft.CodeView
 
         public PointerBody Body => _body;
 
-        internal static SegmentBasedPointer Create(PdbStreamReader reader, PointerBody rawBody)
+        internal static SegmentBasedPointer Create(PdbStreamReader reader,
+            PointerBody rawBody, ref uint maxLength)
         {
             SegmentBasedPointer result = new SegmentBasedPointer() {
                 _body = rawBody,
                 bseg = reader.ReadUInt16()
             };
+            Utils.SafeDecrement(ref maxLength, sizeof(ushort));
             return result;
         }
     }

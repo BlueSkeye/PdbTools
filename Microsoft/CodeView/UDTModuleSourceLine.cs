@@ -8,17 +8,20 @@ namespace PdbReader.Microsoft.CodeView
 
         // public string Name { get; private set; }
 
-        internal static UDTModuleSourceLine Create(PdbStreamReader reader)
+        internal static UDTModuleSourceLine Create(PdbStreamReader reader,
+            ref uint maxLength)
         {
             UDTModuleSourceLine result = new UDTModuleSourceLine() {
                 _udtModuleSourceLine = reader.Read<_UDTModuleSourceLine>(),
             };
+            Utils.SafeDecrement(ref maxLength, _UDTModuleSourceLine.Size);
             return result;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _UDTModuleSourceLine
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<_UDTModuleSourceLine>();
             internal LEAF_ENUM_e leaf; // LF_UDT_MOD_SRC_LINE
             internal uint /*CV_typ_t*/ type; // UDT's type index
             internal uint /*CV_ItemId*/ src; // index into string table where source file name is saved

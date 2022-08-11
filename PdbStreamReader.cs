@@ -1,6 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text;
 
+using PdbReader.Microsoft.CodeView;
+
 namespace PdbReader
 {
     internal class PdbStreamReader
@@ -142,19 +144,22 @@ namespace PdbReader
             }
         }
 
-        internal void HandlePadding()
-        {
-            uint paddingSize;
-            HandlePadding(out paddingSize);
-        }
+        //internal void HandlePadding(uint maxPaddingSize = byte.MaxValue)
+        //{
+        //    uint paddingSize;
+        //    HandlePadding(maxPaddingSize, out paddingSize);
+        //}
 
-        internal void HandlePadding(out uint paddingSize)
+        /// <summary></summary>
+        /// <param name="maxPaddingSize"></param>
+        /// <param name="realPaddingSize"></param>
+        /// <returns>The true padding bytes count.</returns>
+        internal uint HandlePadding(uint maxPaddingSize)
         {
             if (_endOfStreamReached) {
-                paddingSize = 0;
-                return;
+                return 0;
             }
-            // Initially we tought padding would aling on a world boundary.
+            // Initially we tought padding would align on a world boundary.
             // However it appears this doesn't always stand. So we can't
             // compute expected padding size ahead of time as we did until
             // those rare cases were discovered.
@@ -172,22 +177,21 @@ namespace PdbReader
                     break;
                 default:
                     // No padding expected.
-                    paddingSize = 0;
-                    return;
+                    return 0;
             }
             IStreamGlobalOffset paddingStartGlobalOffset = GetGlobalOffset();
-            paddingSize = paddingBytesCount;
-            while (0 < paddingBytesCount) {
+            uint result = Math.Min(paddingBytesCount, maxPaddingSize);
+            uint remainingPadBytesCount = result;
+            while (0 < remainingPadBytesCount) {
                 byte paddingByte = ReadByte();
-                if (paddingByte != (0xF0 + paddingBytesCount)) {
+                if (paddingByte != (0xF0 + remainingPadBytesCount)) {
                     // Not a true padding.
                     SetGlobalOffset(paddingStartGlobalOffset, true);
-                    paddingSize = 0;
-                    return;
+                    return 0;
                 }
-                paddingBytesCount--;
+                remainingPadBytesCount--;
             }
-            return;
+            return result;
         }
 
         private void MoveToNextBlock()
@@ -337,25 +341,13 @@ namespace PdbReader
             return result;
         }
 
-        internal string ReadNTBString()
-        {
-            uint consumedBytes;
-            return ReadNTBString(uint.MaxValue, out consumedBytes);
-        }
-
-        internal string ReadNTBString(uint maxLength)
-        {
-            uint consumedBytes;
-            return ReadNTBString(maxLength, out consumedBytes);
-        }
-
-        internal string ReadNTBString(uint maxLength, out uint consumedBytes)
+        internal string ReadNTBString(ref uint maxLength)
         {
             AssertNotEndOfStream();
             List<byte> bytes = new List<byte>();
-            consumedBytes = 0;
-            while (!_endOfStreamReached && (consumedBytes < maxLength)) {
+            while (!_endOfStreamReached && (0 < maxLength)) {
                 byte inputByte = ReadByte();
+                maxLength--;
                 if (0 == inputByte) {
                     // Sometimes, multiple NTBs may appear at end of string.
                     // We may have reached end of stream so we wouldn't be able to peek
@@ -368,76 +360,62 @@ namespace PdbReader
                     // We don't want to add the NULL terminator to the string.
                     bytes.Add(inputByte);
                 }
-                consumedBytes++;
-            }
-            if (_endOfStreamReached) {
-                bool doBreak = true;
             }
             string result = Encoding.UTF8.GetString(bytes.ToArray());
             // It looks like some but not all NTB strings are further padded with additional
             // bytes to next 32 bits boundary. Padding bytes are 0xF3 0xF2 0xF1 (in that order).
-            uint paddingSize;
-            HandlePadding(out paddingSize);
-            consumedBytes += paddingSize;
+            maxLength -= HandlePadding(maxLength);
             HandleEndOfBlock();
             return result;
         }
 
-        internal ulong ReadVariableLengthValue()
+        internal object ReadVariant()
         {
             uint consumedBytes;
-            return ReadVariableLengthValue(out consumedBytes);
+            return ReadVariant(out consumedBytes);
         }
 
-        internal ulong ReadVariableLengthValue(out uint consumedBytes)
+        internal object ReadVariant(out uint consumedBytes)
         {
             ulong firstWord = ReadUInt16();
-            consumedBytes = sizeof(ushort);
             if (0 == (0x8000 & firstWord)) {
                 // Fast track.
+                consumedBytes = sizeof(ushort);
                 return firstWord;
             }
-            ulong result = 0;
-            ushort bytesCount = (ushort)(firstWord & 0x7FFF);
-            if (4 < bytesCount) {
-                throw new NotSupportedException();
+            // The first word is the value type.
+            switch ((LEAF_ENUM_e)firstWord) {
+                case LEAF_ENUM_e.Character:
+                    consumedBytes = sizeof(ushort) + sizeof(byte);
+                    return (ulong)ReadByte();
+                case LEAF_ENUM_e.Integer:
+                    consumedBytes = sizeof(ushort) + sizeof(uint);
+                    return (ulong)ReadUInt32();
+                case LEAF_ENUM_e.Short:
+                    consumedBytes = sizeof(ushort) + sizeof(ushort);
+                    return (ulong)ReadUInt16();
+                case LEAF_ENUM_e.UnsignedInteger:
+                    consumedBytes = sizeof(ushort) + sizeof(uint);
+                    return (ulong)ReadUInt32();
+                case LEAF_ENUM_e.UnsignedLongInteger:
+                    consumedBytes = sizeof(ushort) + sizeof(ulong);
+                    return (ulong)ReadUInt64();
+                case LEAF_ENUM_e.UnsignedShort:
+                    consumedBytes = sizeof(ushort) + sizeof(ushort);
+                    return (ulong)ReadUInt16();
+                //case LEAF_ENUM_e.LongInteger:
+                //    return (long)ReadUInt64();
+                //case LEAF_ENUM_e.UnsignedLongInteger:
+                //    return (long)ReadUInt64();
+                default:
+                    if (Utils.IsValidBuiltinType((LEAF_ENUM_e)firstWord)) {
+                        throw new NotSupportedException(
+                            $"Unsupported builtin type identifier 0x{firstWord:X4}.");
+                    }
+                    throw new PDBFormatException(
+                        $"Unrecognized builtin type identifier 0x{firstWord:X4}.");
             }
-            while (0 < bytesCount) {
-                ushort input = ReadUInt16();
-                consumedBytes += sizeof(ushort);
-                if (2 <= bytesCount) {
-                    result += (ulong)input << 16;
-                    bytesCount -= 2;
-                }
-                else if (1 == bytesCount) {
-                    result += ((ulong)input & 0xFF) << 16;
-                    bytesCount -= 1;
-                }
-                else if (0 == bytesCount) {
-                    throw new BugException();
-                }
-            }
-            return result;
         }
-
-        //internal ulong ReadVariableLengthValue()
-        //{
-        //    ulong result = 0;
-        //    ushort inputWord = ReadUInt16();
-        //    uint totalBits = 0;
-        //    while (true) {
-        //        result <<= 15;
-        //        result += (ulong)(inputWord & (ushort)0x7FFF);
-        //        totalBits += 15;
-        //        if (0 == (inputWord & 0x8000)) {
-        //            if (totalBits > 32) {
-        //                bool doBreak = true;
-        //            }
-        //            return result;
-        //        }
-        //        inputWord = ReadUInt16();
-        //    }
-        //}
 
         internal ushort ReadUInt16()
         {
@@ -503,6 +481,49 @@ namespace PdbReader
             }
             // Must cross block boundary.
             int unreadBytes = sizeof(uint);
+            result = 0;
+            while (0 < remainingBlockBytes) {
+                result <<= 8;
+                // Note : globalOffset is incremented by the reader.
+                result += _pdb.ReadByte(ref globalOffset);
+                remainingBlockBytes--;
+                unreadBytes--;
+            }
+            // End of block reached. 
+            MoveToNextBlock();
+            remainingBlockBytes = RemainingBlockBytes;
+            while (0 < unreadBytes) {
+                if (0 >= remainingBlockBytes) {
+                    throw new BugException();
+                }
+                result <<= 8;
+                // Note : globalOffset is incremented by the reader.
+                result += _pdb.ReadByte(ref globalOffset);
+                // No need to decrement remainingBlockBytes because we are reading at
+                // most three bytes which is guaranteed to be less than remaining block
+                // bytes.
+                unreadBytes--;
+            }
+            HandleEndOfBlock();
+            return result;
+        }
+
+        internal ulong ReadUInt64()
+        {
+            AssertNotEndOfStream();
+            uint remainingBlockBytes = RemainingBlockBytes;
+            uint result;
+            uint globalOffset = _GetGlobalOffset();
+            if (sizeof(ulong) <= remainingBlockBytes) {
+                // Fast read.
+                try { return _pdb.ReadUInt64(ref globalOffset); }
+                finally {
+                    _currentBlockOffset += sizeof(ulong);
+                    HandleEndOfBlock();
+                }
+            }
+            // Must cross block boundary.
+            int unreadBytes = sizeof(ulong);
             result = 0;
             while (0 < remainingBlockBytes) {
                 result <<= 8;

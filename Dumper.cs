@@ -23,7 +23,11 @@ namespace PdbDumper
             foreach (FileInfo scannedPdb in _allFiles) {
                 try {
                     Console.WriteLine($"INFO : Loading PDB file {scannedPdb.FullName}.");
-                    Pdb pdb = new Pdb(scannedPdb,  traceFlags, true);
+                    Pdb? pdb = Pdb.Create(scannedPdb,  traceFlags, true);
+                    if (null == pdb) {
+                        Console.WriteLine($"INFO : PDB file won't be scanned.");
+                        continue;
+                    }
                     Console.WriteLine($"INFO : PDB file {scannedPdb.FullName} successfully loaded.");
                     LoadDBIStream(pdb);
                     LoadTPIStream(pdb);

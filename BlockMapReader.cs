@@ -5,6 +5,7 @@ namespace PdbReader
     internal class BlockMapReader
     {
         private readonly uint[] _blockMapBlocks;
+        private uint _blockMapBlocksCount;
         private readonly uint _blockSize;
         /// <summary>Index within <see cref="_blockMapBlocks"/> of the block map
         /// addresses being read.</summary>
@@ -28,13 +29,14 @@ namespace PdbReader
             }
             uint blockMapEntryCount = Pdb.Ceil(superBlock.NumDirectoryBytes,
                 superBlock.BlockSize);
+            _blockMapBlocksCount = ComputeBlockMapBlocksCount(superBlock.BlockSize,
+                blockMapEntryCount);
             if (_pdb.ShouldTraceStreamDirectory) {
-                Console.Write($"DBG : {blockMapEntryCount} entries : ");
+                Console.Write($"DBG : {blockMapEntryCount} entries in {_blockMapBlocksCount} map blocks : ");
             }
-            // Make sure we fit in a single block (very likely).
-            if ((sizeof(uint) * blockMapEntryCount) > _blockSize) {
-                throw new PDBFormatException("Too many block map entries.");
-            }
+            // We may occupy several adjacent blocks such as in System.pdb having
+            // signature 29F46DCA159C4451ACD67C3F1B43470E2 where block size is 0x200
+            // and blockMapEntryCount = 0x88
             _blockMapBlocks = new uint[blockMapEntryCount];
             uint offset = blockMapOffset;
             // Read block map blocks index.
@@ -63,6 +65,12 @@ namespace PdbReader
             if (delta >= _blockSize) {
                 SetCurrentReaderBlock(++_currentReaderBlockIndex);
             }
+        }
+
+        private static uint ComputeBlockMapBlocksCount(uint blockSize, uint blockMapEntryCount)
+        {
+            uint result = 1 + ((blockMapEntryCount - 1) / (8 * blockSize));
+            return result;
         }
 
         internal IEnumerable<uint> EnumerateBlockMapBlockIndexes()
