@@ -37,9 +37,15 @@ namespace PdbReader.Microsoft.CodeView
                     _method = reader.Read<_Method>()
                 };
                 Utils.SafeDecrement(ref maxLength, _Method.Size);
-                if (CV_methodprop_e.PureIntroduction == Utils.GetMethodProperties(result._method.attr)) {
-                    result._virtualFunctionTableOffset = reader.ReadUInt32();
-                    Utils.SafeDecrement(ref maxLength, sizeof(uint));
+                CV_methodprop_e methodProperties = Utils.GetMethodProperties(result._method.attr);
+                switch (methodProperties) {
+                    case CV_methodprop_e.PureIntroduction:
+                    case CV_methodprop_e.Introduction:
+                        result._virtualFunctionTableOffset = reader.ReadUInt32();
+                        Utils.SafeDecrement(ref maxLength, sizeof(uint));
+                        break;
+                    default:
+                        break;
                 }
                 return result;
             }

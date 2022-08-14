@@ -16,14 +16,16 @@ namespace PdbDumper
                 return 1;
             }
             Pdb.TraceFlags traceFlags =
-                // Pdb.TraceFlags.FullDecodingDebug |
-                Pdb.TraceFlags.StreamDirectoryBlocks
+                0 
+                // | Pdb.TraceFlags.FullDecodingDebug
+                // | Pdb.TraceFlags.StreamDirectoryBlocks
                 ;
 
+            uint scannedFilesCount = 0;
             foreach (FileInfo scannedPdb in _allFiles) {
                 try {
                     Console.WriteLine($"INFO : Loading PDB file {scannedPdb.FullName}.");
-                    Pdb? pdb = Pdb.Create(scannedPdb,  traceFlags, true);
+                    Pdb? pdb = Pdb.Create(scannedPdb,  traceFlags, false);
                     if (null == pdb) {
                         Console.WriteLine($"INFO : PDB file won't be scanned.");
                         continue;
@@ -33,9 +35,11 @@ namespace PdbDumper
                     LoadTPIStream(pdb);
                     LoadIPIStream(pdb);
                     Console.WriteLine($"INFO : PDB file {scannedPdb.FullName} successfully scanned.");
+                    scannedFilesCount++;
                 }
                 catch (Exception e) { throw; }
             }
+            Console.WriteLine($"{scannedFilesCount} files scanned.");
             return 0;
         }
 

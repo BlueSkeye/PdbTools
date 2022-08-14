@@ -148,6 +148,9 @@ namespace PdbReader
                     return UDTSourceLine.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Union:
                     return Union.Create(_reader, ref recordLength);
+                case LEAF_ENUM_e.IVBClass:
+                case LEAF_ENUM_e.VBClass:
+                    return VirtualBaseClass.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.VFunctionTAB:
                     return VirtualFunctionTablePointer.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.VirtualTableShape:

@@ -6,9 +6,11 @@ namespace PdbReader
 {
     public class Pdb
     {
-        internal const string DebuggedPdbName = "System.pdb";
+        internal const string DebuggedPdbName = "";
         private const string SymbolCacheRelativePath = @"AppData\Local\Temp\SymbolCache";
         private DebugInformationStream _debugInfoStream;
+        /// <summary>An array of flags describing blocks that are known to be in use.</summary>
+        private bool[] _knownInUseBlocks;
         private MemoryMappedFile _mappedPdb;
         private MemoryMappedViewAccessor _mappedPdbView;
         internal readonly FileInfo _pdbFile;
@@ -57,6 +59,9 @@ namespace PdbReader
         internal bool FullDecodingDebugEnabled
             => (0 != (_traceFlags & TraceFlags.FullDecodingDebug));
 
+        internal bool FreeBlocksConsistencyDebugEnabled
+            => (0 != (_traceFlags & TraceFlags.FreeBlocksConsistencyDebug));
+
         internal bool IsDebuggedFile => (0 == string.Compare(_pdbFile.Name, DebuggedPdbName, true));
 
         internal bool ShouldTraceNamedStreamMap
@@ -92,8 +97,7 @@ namespace PdbReader
             return 1 + ((value - 1) / dividedBy);
         }
 
-        private void CheckBlocksMappingConsistency(uint[] streamDirectoryBlocks,
-            uint blockMapBlocksCount)
+        private void CheckBlocksMappingConsistency(uint blockMapBlocksCount)
         {
             if (null == _freeBlockMaps) {
                 throw new InvalidOperationException();
@@ -104,55 +108,24 @@ namespace PdbReader
             if (null == _streamDescriptors) {
                 throw new InvalidOperationException();
             }
-            bool[] alreadySeenBlock = new bool[_freeBlockMaps.Length];
-            // Superblock itself ...
-            alreadySeenBlock[0] = true;
             // .. as well as those Free Block Maps blocks effectively used.
             uint totalBlocksCount = (uint)(1U + (uint)(((ulong)((ulong)_mappedPdbView.Capacity - 1UL)) / (ulong)_superBlock.BlockSize));
             uint perFreeBlockMapBlocksCount = 8 * _superBlock.BlockSize;
-            uint freeBlockMapBlocks = 1 + ((totalBlocksCount - 1) / perFreeBlockMapBlocksCount);
-            for(uint fbmbIndex = 0; fbmbIndex < freeBlockMapBlocks; fbmbIndex++) {
-                alreadySeenBlock[1 + (fbmbIndex * _superBlock.BlockSize)] = true;
-                alreadySeenBlock[2 + (fbmbIndex * _superBlock.BlockSize)] = true;
+            uint freeBlockMapBlocksCount = 1 + ((totalBlocksCount - 1) / perFreeBlockMapBlocksCount);
+            // Block map address from superblock.
+            if (FreeBlocksConsistencyDebugEnabled) {
+                Console.WriteLine($"FBC : Block map address block #{_superBlock.BlockMapAddr} in use.");
             }
-            // Block map address from superblock (one or several).
-            alreadySeenBlock[_superBlock.BlockMapAddr] = true;
-            for(uint index = 1; index < blockMapBlocksCount; index++) {
-                alreadySeenBlock[_superBlock.BlockMapAddr + index] = true;
-            }
+            _knownInUseBlocks[_superBlock.BlockMapAddr] = true;
 
-            // Register blocks used by stream directory.
-            foreach (uint blockIndex in streamDirectoryBlocks) {
-                alreadySeenBlock[blockIndex] = true;
-            }
-
-            // Scan stream descriptors and register used blocks..
-            for (int descriptorIndex = 0; descriptorIndex < _streamDescriptors.Count; descriptorIndex++) {
-                // Descriptor 0 is a special case. This was the old stream directory which blocks don't
-                // look to be registered as used in free block map. Skip this stream.
-                if (0 == descriptorIndex) {
-                    continue;
-                }
-                // Retrieve blocks for this stream.
-                List<uint> streamBlocks = _streamDescriptors[descriptorIndex];
-                int streamBlocksCount = streamBlocks.Count;
-                // Mark each block of this stream as used.
-                for(int streamBlocksIndex = 0; streamBlocksIndex < streamBlocksCount; streamBlocksIndex++) {
-                    uint blockNumber = streamBlocks[streamBlocksIndex];
-                    if (alreadySeenBlock[blockNumber]) {
-                        throw new PDBFormatException($"Block index {blockNumber} already seen.");
-                    }
-                    alreadySeenBlock[blockNumber] = true;
-                }
-            }
             // None of the seen blocks should be marked as free in free block map.
             // Notice : the super block itself, as well as Free Block Map blocks are
             // not marked as in use in the _inUseBlockMaps.
-            for (int index = 1; index < alreadySeenBlock.Length; index++) {
+            for (int index = 1; index < _knownInUseBlocks.Length; index++) {
                 if (IsFreeBlockMapBlock(index)) {
                     continue;
                 }
-                if (alreadySeenBlock[index] == _freeBlockMaps[index]) {
+                if (_knownInUseBlocks[index] == _freeBlockMaps[index]) {
                     throw new PDBFormatException(
                         $"Seen block #{index} is marked as free in free block map.");
                 }
@@ -162,7 +135,7 @@ namespace PdbReader
                 if (IsFreeBlockMapBlock(index)) {
                     continue;
                 }
-                if (_freeBlockMaps[index] == alreadySeenBlock[index]) {
+                if (_freeBlockMaps[index] == _knownInUseBlocks[index]) {
                     throw new PDBFormatException(
                         $"Non free block #{index} in map is not bound to any stream.");
                 }
@@ -192,13 +165,18 @@ namespace PdbReader
                 Console.WriteLine($"Ignoring .Net PDB file.");
                 return null;
             }
+            if (result.FreeBlocksConsistencyDebugEnabled) {
+                Console.WriteLine($"FBC : Super block #0 in use.");
+            }
+            result._knownInUseBlocks = new bool[result.ComputeBlocksCount()];
+            result._knownInUseBlocks[0] = true;
             if (result._strictChecksEnabled) {
                 result._blockMapBlocksCount = result.LoadFreeBlocksMap();
             }
-            uint[] streamDirectoryBlocks = result.LoadStreamDirectory();
+            result.LoadStreamDirectory();
             if (result._strictChecksEnabled) {
-                result.CheckBlocksMappingConsistency(streamDirectoryBlocks,
-                    result._blockMapBlocksCount);
+                // TODO : Fix bug
+                // result.CheckBlocksMappingConsistency(result._blockMapBlocksCount);
                 result._freeBlockMaps = null;
             }
             // TODO : Partially completed
@@ -326,7 +304,7 @@ namespace PdbReader
             if (0 != ((ulong)_mappedPdbView.Capacity % _superBlock.BlockSize)) {
                 throw new PDBFormatException("Invalid file size.");
             }
-            uint totalBlocksCount = (uint)((ulong)_mappedPdbView.Capacity / _superBlock.BlockSize);
+            uint totalBlocksCount = (uint)ComputeBlocksCount();
             if (2 > totalBlocksCount) {
                 throw new PDBFormatException("File too small.");
             }
@@ -334,8 +312,13 @@ namespace PdbReader
             _freeBlockMaps = new bool[totalBlocksCount];
             byte[] currentMapBlock = new byte[_superBlock.BlockSize];
             int mapBlockOffset = 0;
+            uint currentMapBlockIndex = _superBlock.FreeBlockMapBlock;
             int currentMapBlockOffset =
-                (int)(_superBlock.BlockSize * _superBlock.FreeBlockMapBlock);
+                (int)(_superBlock.BlockSize * currentMapBlockIndex);
+            if (FreeBlocksConsistencyDebugEnabled) {
+                Console.WriteLine($"FCB : Current map block #{currentMapBlockIndex} is in use.");
+            }
+            _knownInUseBlocks[currentMapBlockIndex] = true;
             _mappedPdbView.ReadArray<byte>(currentMapBlockOffset, currentMapBlock, 0,
                 (int)_superBlock.BlockSize);
             byte inputByte = currentMapBlock[mapBlockOffset++];
@@ -344,7 +327,13 @@ namespace PdbReader
             for (int blockIndex = 0; blockIndex < totalBlocksCount; blockIndex++) {
                 if (0 >= availableBits) {
                     if (_superBlock.BlockSize <= mapBlockOffset) {
-                        currentMapBlockOffset += (int)(_superBlock.BlockSize * _superBlock.BlockSize);
+                        currentMapBlockIndex += _superBlock.BlockSize;
+                        if (FreeBlocksConsistencyDebugEnabled) {
+                            Console.WriteLine($"FBC : Free block map block #{currentMapBlockIndex} is in use.");
+                        }
+                        _knownInUseBlocks[currentMapBlockIndex] = true;
+                        // Read a new free block map block.
+                        currentMapBlockOffset = (int)(_superBlock.BlockSize * currentMapBlockIndex);
                         if (_mappedPdbView.Capacity <= (currentMapBlockOffset + _superBlock.BlockSize)) {
                             throw new PDBFormatException("Invalid map block offset.");
                         }
@@ -360,7 +349,7 @@ namespace PdbReader
                 inputByte >>= 1;
                 availableBits--;
             }
-            uint effectiveMapBlocksCount = 1 + (totalBlocksCount / (8 * _superBlock.BlockSize));
+            uint effectiveMapBlocksCount = 1 + ((totalBlocksCount - 1) / (8 * _superBlock.BlockSize));
             return effectiveMapBlocksCount;
         }
 
@@ -395,8 +384,8 @@ namespace PdbReader
             }
         }
 
-        /// <summary>Read the block map blocks and retrieve an array of block indexes to be used
-        /// by the stream directory.</summary>
+        /// <summary>Read the block map blocks and retrieve an array of block indexes to
+        /// be used by the stream directory.</summary>
         /// <returns>An array of block indexes used by the stream directory.</returns>
         /// <exception cref="BugException"></exception>
         private uint[] LoadStreamDirectory()
@@ -439,6 +428,14 @@ namespace PdbReader
                     uint blockNumber = mapReader.ReadUInt32();
                     totalReadBytes += sizeof(uint);
                     streamDescriptor.Add(blockNumber);
+                    if (_knownInUseBlocks[blockNumber]) {
+                        Console.WriteLine(
+                            $"WARN : Block #{blockNumber} in stream #{streamIndex} has already been seen in another stream.");
+                    }
+                    if (FreeBlocksConsistencyDebugEnabled) {
+                        Console.WriteLine($"FBC : Block #{blockNumber} in use by stream #{streamIndex}.");
+                    }
+                    _knownInUseBlocks[blockNumber] = true;
                     if (ShouldTraceStreamDirectory) {
                         if (0 != blockIndex) { Console.Write(", "); }
                         Console.Write(blockNumber);
@@ -496,6 +493,17 @@ namespace PdbReader
             return result;
         }
 
+        internal void RegisterUsedBlock(uint blockIndex)
+        {
+            if (blockIndex >= (uint)_knownInUseBlocks.Length) {
+                throw new ArgumentOutOfRangeException(nameof(blockIndex));
+            }
+            if (FreeBlocksConsistencyDebugEnabled) {
+                Console.WriteLine($"FBC : Block #{blockIndex} is in use.");
+            }
+            _knownInUseBlocks[blockIndex] = true;
+        }
+
         internal static uint SafeCastToUint32(int value)
         {
             if (0 > value) { throw new BugException(); }
@@ -509,7 +517,8 @@ namespace PdbReader
             StreamDirectoryBlocks = 0x00000001,
             NamedStreamMap = 0x00000002,
             ModulesInformation = 0x00000004,
-            FullDecodingDebug = 0x00000008
+            FullDecodingDebug = 0x00000008,
+            FreeBlocksConsistencyDebug = 0x00000010
         }
     }
 }

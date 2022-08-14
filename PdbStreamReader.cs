@@ -391,6 +391,14 @@ namespace PdbReader
                 case LEAF_ENUM_e.Integer:
                     consumedBytes = sizeof(ushort) + sizeof(uint);
                     return (ulong)ReadUInt32();
+                case LEAF_ENUM_e.LongInteger:
+                    consumedBytes = sizeof(ushort) + sizeof(ulong);
+                    return (ulong)ReadUInt64();
+                case LEAF_ENUM_e.Real128Bits:
+                    consumedBytes = sizeof(ushort) + 16;
+                    byte[] real128BitsResult = new byte[16];
+                    ReadArray<byte>(real128BitsResult, ReadByte);
+                    return real128BitsResult;
                 case LEAF_ENUM_e.Short:
                     consumedBytes = sizeof(ushort) + sizeof(ushort);
                     return (ulong)ReadUInt16();

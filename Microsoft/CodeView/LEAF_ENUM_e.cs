@@ -127,7 +127,7 @@ namespace PdbReader.Microsoft.CodeView
 
         BClass = 0x1400,
         VBClass = 0x1401,
-        IVNClass = 0x1402,
+        IVBClass = 0x1402,
         FriendFunctionST = 0x1403,
         Index = 0x1404,
         MemberST = 0x1405,

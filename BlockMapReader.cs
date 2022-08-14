@@ -43,6 +43,7 @@ namespace PdbReader
             for (int index = 0; index < blockMapEntryCount; index++) {
                 uint currentBlock = _pdb.ReadUInt32(ref offset);
                 _blockMapBlocks[index] = currentBlock;
+                _pdb.RegisterUsedBlock(currentBlock);
                 if (_pdb.ShouldTraceStreamDirectory) {
                     if (0 < index) { Console.Write(", "); }
                     Console.Write(currentBlock);
