@@ -159,6 +159,9 @@ namespace PdbReader
                     // TODO : Account for padding pseudo bytes.
                     // Handling should match description from include file (i.e. should only
                     // appear in complex types).
+                    if ("AppXDeploymentClient.pdb" == _owner._pdbFile.Name) {
+                        bool doBreak = true;
+                    }
                     Console.WriteLine(
                         $"WARN : Unknwon leaf record kind '{recordKind}' / 0x{((int)recordKind):X4}");
                     return null;

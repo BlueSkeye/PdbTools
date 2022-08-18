@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Reflection;
 
+using PdbDownloader;
 using PdbReader;
 
 namespace PdbDumper
@@ -8,6 +9,7 @@ namespace PdbDumper
     public static class Dumper
     {
         private static IEnumerable<FileInfo> _allFiles;
+        private static bool _enumeratedFilesArePdb;
 
         public static int Main(string[] args)
         {
@@ -22,7 +24,18 @@ namespace PdbDumper
                 ;
 
             uint scannedFilesCount = 0;
-            foreach (FileInfo scannedPdb in _allFiles) {
+            foreach (FileInfo scannedFile in _allFiles) {
+                FileInfo? scannedPdb;
+                if (_enumeratedFilesArePdb) {
+                    scannedPdb = scannedFile;
+                }
+                else {
+                    scannedPdb = new Downloader().CachePdb(scannedFile);
+                    if (null == scannedPdb) {
+                        Console.WriteLine($"Can't find PDB for file {scannedFile}");
+                        continue;
+                    }
+                }
                 try {
                     Console.WriteLine($"INFO : Loading PDB file {scannedPdb.FullName}.");
                     Pdb? pdb = Pdb.Create(scannedPdb,  traceFlags, false);
@@ -73,21 +86,33 @@ namespace PdbDumper
             if (0 == args.Length) {
                 return false;
             }
-            if ("-cached" == args[0]) {
-                DirectoryInfo root = new DirectoryInfo(args[1]);
-                if (!root.Exists) {
-                    Console.WriteLine($"Input direcotry '{root.FullName}' doesn't exist.");
-                    return false;
-                }
-                _allFiles = WalkDirectory(root);
-            }
-            else {
-                FileInfo singleFile = new FileInfo(args[0]);
-                if (!singleFile.Exists) {
-                    Console.WriteLine($"Input file '{singleFile.FullName}' doesn't exist.");
-                    return false;
-                }
-                _allFiles = SingleFileEnumerator(singleFile);
+            DirectoryInfo root;
+            switch (args[0].ToLower()) {
+                case "-cached":
+                    root = new DirectoryInfo(args[1]);
+                    if (!root.Exists) {
+                        Console.WriteLine($"Input directory '{root.FullName}' doesn't exist.");
+                        return false;
+                    }
+                    _allFiles = WalkDirectory(root, "*.pdb");
+                    _enumeratedFilesArePdb = true;
+                    break;
+                case "-dir":
+                    root = new DirectoryInfo(args[1]);
+                    if (!root.Exists) {
+                        Console.WriteLine($"Input directory '{root.FullName}' doesn't exist.");
+                        return false;
+                    }
+                    _allFiles = WalkDirectory(root, new string[] { ".dll", ".exe", ".sys" });
+                    break;
+                default:
+                    FileInfo singleFile = new FileInfo(args[0]);
+                    if (!singleFile.Exists) {
+                        Console.WriteLine($"Input file '{singleFile.FullName}' doesn't exist.");
+                        return false;
+                    }
+                    _allFiles = SingleFileEnumerator(singleFile);
+                    break;
             }
             return true;
         }
@@ -105,7 +130,36 @@ namespace PdbDumper
             yield break;
         }
 
-        private static IEnumerable<FileInfo> WalkDirectory(DirectoryInfo root)
+        private delegate bool FileFilterDelegate(FileInfo candidate);
+
+        private static IEnumerable<FileInfo> WalkDirectory(DirectoryInfo root,
+            string fileExtension)
+        {
+            fileExtension = fileExtension.ToLower();
+            return WalkDirectory(root, new string[] { fileExtension });
+        }
+
+        private static IEnumerable<FileInfo> WalkDirectory(DirectoryInfo root,
+            string[] fileExtensions)
+        {
+            int extensionsCount = fileExtensions.Length;
+            for(int index = 0; index < extensionsCount; index++) {
+                fileExtensions[index] = fileExtensions[index].ToLower();
+            }
+            return WalkDirectory(root, delegate (FileInfo candidate) {
+                string candidateName = candidate.Name.ToLower();
+                for(int index = 0; index < extensionsCount; index++) {
+                    string scannedExtension = fileExtensions[index];
+                    if (candidateName.EndsWith(scannedExtension)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+
+        private static IEnumerable<FileInfo> WalkDirectory(DirectoryInfo root,
+            FileFilterDelegate fileFilter)
         {
             Stack<DirectoryInfo> directoryStack = new Stack<DirectoryInfo>();
             directoryStack.Push(root);
@@ -114,8 +168,10 @@ namespace PdbDumper
                 foreach(DirectoryInfo subDirectory in currentDirectory.GetDirectories()) {
                     directoryStack.Push(subDirectory);
                 }
-                foreach(FileInfo candidateFile in currentDirectory.GetFiles("*.pdb")) {
-                    yield return candidateFile;
+                foreach(FileInfo candidateFile in currentDirectory.GetFiles()) {
+                    if ((null == fileFilter) || (fileFilter(candidateFile))) {
+                        yield return candidateFile;
+                    }
                 }
             }
             yield break;

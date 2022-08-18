@@ -494,6 +494,8 @@ namespace PdbReader
                 result <<= 8;
                 // Note : globalOffset is incremented by the reader.
                 result += _pdb.ReadByte(ref globalOffset);
+                // Not strictly required because we will switch to next block later.
+                _currentBlockOffset += sizeof(byte);
                 remainingBlockBytes--;
                 unreadBytes--;
             }
@@ -509,8 +511,10 @@ namespace PdbReader
                 result += _pdb.ReadByte(ref globalOffset);
                 // No need to decrement remainingBlockBytes because we are reading at
                 // most three bytes which is guaranteed to be less than remaining block
-                // bytes.
+                // bytes ...
                 unreadBytes--;
+                // ... however don't forget to adjust current block offset (BUG FIX)
+                _currentBlockOffset += sizeof(byte);
             }
             HandleEndOfBlock();
             return result;
