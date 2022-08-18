@@ -32,7 +32,7 @@ namespace PdbDumper
                 else {
                     scannedPdb = new Downloader().CachePdb(scannedFile);
                     if (null == scannedPdb) {
-                        Console.WriteLine($"Can't find PDB for file {scannedFile}");
+                        Console.WriteLine($"Can't find or load PDB for file {scannedFile}");
                         continue;
                     }
                 }

@@ -104,7 +104,16 @@ namespace PdbDownloader
             if (!library.Exists) {
                 throw new BugException($"File {library.FullName} doesn't exist.");
             }
-            using (BinaryReader reader = new BinaryReader(library.OpenRead())) {
+            BinaryReader? reader;
+            try { reader = new BinaryReader(library.OpenRead()); }
+            catch (UnauthorizedAccessException) {
+                Console.WriteLine($"{library.FullName} file access is denied.");
+                return null;
+            }
+            try {
+                if (null == reader) {
+                    throw new BugException();
+                }
                 try {
                     if (!AllocateModuleSpace(reader, false)) {
                         return null;
@@ -126,6 +135,12 @@ namespace PdbDownloader
                         Marshal.FreeHGlobal(_detectorLoadedAddress);
                     }
                     throw;
+                }
+            }
+            finally {
+                if (null != reader) {
+                    reader.Close();
+                    reader = null;
                 }
             }
         }
