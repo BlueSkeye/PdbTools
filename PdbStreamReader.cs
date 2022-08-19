@@ -98,7 +98,7 @@ namespace PdbReader
         {
             // Account for the flag parameter prior to computing global offset.
             if (ensureAtLeastOneAvailableByte && (0 >= RemainingBlockBytes)) {
-                MoveToNextBlock();
+                MoveToNextBlockIgnoreNewOffset();
             }
             ulong result = (_blockSize * _currentBlockNumber) + _currentBlockOffset;
             if (uint.MaxValue < result) {
@@ -194,7 +194,15 @@ namespace PdbReader
             return result;
         }
 
-        private void MoveToNextBlock()
+        private void MoveToNextBlock(out uint newGlobalOffset)
+        {
+            if (!MoveToNextBlockAllowEndOfStream()) {
+                throw new BugException();
+            }
+            newGlobalOffset = GetGlobalOffset().Value;
+        }
+
+        private void MoveToNextBlockIgnoreNewOffset()
         {
             if (!MoveToNextBlockAllowEndOfStream()) {
                 throw new BugException();
@@ -244,7 +252,7 @@ namespace PdbReader
                 // We may have consumed the whole block. In such a case we should set position
                 // at beginning of the next one.
                 if (0 == RemainingBlockBytes) {
-                    MoveToNextBlock();
+                    MoveToNextBlockIgnoreNewOffset();
                 }
                 return result;
             }
@@ -262,7 +270,7 @@ namespace PdbReader
                     pendingReadSize -= readSize;
                     bufferOffset += (int)readSize;
                     if (0 == RemainingBlockBytes) {
-                        MoveToNextBlock();
+                        MoveToNextBlockIgnoreNewOffset();
                     }
                 }
                 return Marshal.PtrToStructure<T>(buffer);
@@ -290,7 +298,7 @@ namespace PdbReader
                 if (0 == requiredBytes) {
                     return;
                 }
-                MoveToNextBlock();
+                MoveToNextBlockIgnoreNewOffset();
             }
             HandleEndOfBlock();
         }
@@ -429,7 +437,6 @@ namespace PdbReader
         {
             AssertNotEndOfStream();
             uint remainingBlockBytes = RemainingBlockBytes;
-            ushort result;
             uint globalOffset = _GetGlobalOffset();
             if (sizeof(ushort) <= remainingBlockBytes) {
                 // Fast read.
@@ -439,38 +446,7 @@ namespace PdbReader
                     HandleEndOfBlock();
                 }
             }
-            // Must cross block boundary.
-            int unreadBytes = sizeof(ushort);
-            int shiftCount = 0;
-            result = 0;
-            while (0 < remainingBlockBytes) {
-                // Note : globalOffset is incremented by the reader.
-                result += (ushort)(_pdb.ReadByte(ref globalOffset) << shiftCount);
-                // Not strictly required because we will switch to next block later.
-                _currentBlockOffset += sizeof(byte);
-                remainingBlockBytes--;
-                unreadBytes--;
-                shiftCount += 8;
-            }
-            // End of block reached. 
-            MoveToNextBlock();
-            remainingBlockBytes = RemainingBlockBytes;
-            if (1 < unreadBytes) {
-                throw new BugException();
-            }
-            if (0 >= remainingBlockBytes) {
-                throw new BugException();
-            }
-            // Note : globalOffset is incremented by the reader.
-            result += (ushort)(_pdb.ReadByte(ref globalOffset) << shiftCount);
-            // No need to decrement remainingBlockBytes because we are reading at
-            // most three bytes which is guaranteed to be less than remaining block
-            // bytes ...
-            unreadBytes--;
-            // ... however don't forget to adjust current block offset (BUG FIX)
-            _currentBlockOffset += sizeof(byte);
-            HandleEndOfBlock();
-            return result;
+            return (ushort)_SlowRead(sizeof(ushort), remainingBlockBytes);
         }
 
         internal uint ReadUInt16AndCastToUInt32()
@@ -482,7 +458,6 @@ namespace PdbReader
         {
             AssertNotEndOfStream();
             uint remainingBlockBytes = RemainingBlockBytes;
-            uint result;
             uint globalOffset = _GetGlobalOffset();
             if (sizeof(uint) <= remainingBlockBytes) {
                 // Fast read.
@@ -492,45 +467,13 @@ namespace PdbReader
                     HandleEndOfBlock();
                 }
             }
-            // Must cross block boundary.
-            int unreadBytes = sizeof(uint);
-            result = 0;
-            int shiftCount = 0;
-            while (0 < remainingBlockBytes) {
-                // Note : globalOffset is incremented by the reader.
-                result += (uint)(_pdb.ReadByte(ref globalOffset) << shiftCount);
-                // Not strictly required because we will switch to next block later.
-                _currentBlockOffset += sizeof(byte);
-                remainingBlockBytes--;
-                unreadBytes--;
-                shiftCount += 8;
-            }
-            // End of block reached. 
-            MoveToNextBlock();
-            remainingBlockBytes = RemainingBlockBytes;
-            while (0 < unreadBytes) {
-                if (0 >= remainingBlockBytes) {
-                    throw new BugException();
-                }
-                // Note : globalOffset is incremented by the reader.
-                result += (uint)(_pdb.ReadByte(ref globalOffset) << shiftCount);
-                // No need to decrement remainingBlockBytes because we are reading at
-                // most three bytes which is guaranteed to be less than remaining block
-                // bytes ...
-                unreadBytes--;
-                // ... however don't forget to adjust current block offset (BUG FIX)
-                _currentBlockOffset += sizeof(byte);
-                shiftCount += 8;
-            }
-            HandleEndOfBlock();
-            return result;
+            return (uint)_SlowRead(sizeof(uint), remainingBlockBytes);
         }
 
         internal ulong ReadUInt64()
         {
             AssertNotEndOfStream();
             uint remainingBlockBytes = RemainingBlockBytes;
-            ulong result;
             uint globalOffset = _GetGlobalOffset();
             if (sizeof(ulong) <= remainingBlockBytes) {
                 // Fast read.
@@ -540,9 +483,14 @@ namespace PdbReader
                     HandleEndOfBlock();
                 }
             }
+            return (ulong)_SlowRead(sizeof(ulong), remainingBlockBytes);
+        }
+
+        private ulong _SlowRead(int unreadBytes, uint remainingBlockBytes)
+        {
             // Must cross block boundary.
-            int unreadBytes = sizeof(ulong);
-            result = 0;
+            uint globalOffset = GetGlobalOffset().Value;
+            ulong result = 0;
             int shiftCount = 0;
             while (0 < remainingBlockBytes) {
                 // Note : globalOffset is incremented by the reader.
@@ -551,9 +499,10 @@ namespace PdbReader
                 _currentBlockOffset += sizeof(byte);
                 remainingBlockBytes--;
                 unreadBytes--;
+                shiftCount += 8;
             }
             // End of block reached. 
-            MoveToNextBlock();
+            MoveToNextBlock(out globalOffset);
             remainingBlockBytes = RemainingBlockBytes;
             while (0 < unreadBytes) {
                 if (0 >= remainingBlockBytes) {

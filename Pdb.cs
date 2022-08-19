@@ -6,7 +6,7 @@ namespace PdbReader
 {
     public class Pdb
     {
-        internal const string DebuggedPdbName = "IEUI.pdb";
+        internal const string DebuggedPdbName = "srm.pdb";
         private const string SymbolCacheRelativePath = @"AppData\Local\Temp\SymbolCache";
         private DebugInformationStream _debugInfoStream;
         /// <summary>An array of flags describing blocks that are known to be in use.</summary>
@@ -294,6 +294,14 @@ namespace PdbReader
                 default:
                     return false;
             }
+        }
+
+        internal bool IsNonEmptyStream(ushort streamNumber)
+        {
+            if (!IsValidStreamNumber(streamNumber)) {
+                throw new BugException();
+            }
+            return (0 < _streamDescriptors[streamNumber].Count);
         }
 
         internal bool IsValidStreamNumber(ushort candidate)

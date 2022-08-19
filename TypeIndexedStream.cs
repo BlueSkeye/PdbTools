@@ -4,7 +4,7 @@ namespace PdbReader
     /// <summary>Also known as the TPI stream.</summary>
     public class TypeIndexedStream : IndexedStream
     {
-        private const uint ThisStreamIndex = 2;
+        private const ushort ThisStreamIndex = 2;
 
         public TypeIndexedStream(Pdb owner)
             : base(owner, ThisStreamIndex)

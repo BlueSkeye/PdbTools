@@ -71,8 +71,13 @@ namespace PdbDumper
 
         private static void LoadIPIStream(Pdb pdb)
         {
-            IdIndexedStream stream = new PdbReader.IdIndexedStream(pdb);
-            stream.LoadRecords();
+            IdIndexedStream stream = PdbReader.IdIndexedStream.Create(pdb);
+            if (null == stream) {
+                Console.WriteLine("INFO : IPI stream is empty.");
+            }
+            else {
+                stream.LoadRecords();
+            }
         }
 
         private static void LoadTPIStream(Pdb pdb)
@@ -165,8 +170,14 @@ namespace PdbDumper
             directoryStack.Push(root);
             while (0 < directoryStack.Count) {
                 DirectoryInfo currentDirectory = directoryStack.Pop();
-                foreach(DirectoryInfo subDirectory in currentDirectory.GetDirectories()) {
-                    directoryStack.Push(subDirectory);
+                try {
+                    foreach(DirectoryInfo subDirectory in currentDirectory.GetDirectories()) {
+                        directoryStack.Push(subDirectory);
+                    }
+                }
+                catch (UnauthorizedAccessException uae) {
+                    Console.WriteLine($"WARN : Directory {currentDirectory.FullName} ignored (access denied).");
+                    continue;
                 }
                 foreach(FileInfo candidateFile in currentDirectory.GetFiles()) {
                     if ((null == fileFilter) || (fileFilter(candidateFile))) {

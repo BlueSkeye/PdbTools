@@ -7,9 +7,9 @@ namespace PdbReader
         protected readonly Header _header;
         protected readonly Pdb _owner;
         internal readonly PdbStreamReader _reader;
-        private readonly uint _streamIndex;
+        private readonly ushort _streamIndex;
 
-        protected IndexedStream(Pdb owner, uint streamIndex)
+        protected IndexedStream(Pdb owner, ushort streamIndex)
         {
             _streamIndex = streamIndex;
             _owner = owner ?? throw new ArgumentNullException(nameof(owner));
@@ -108,6 +108,8 @@ namespace PdbReader
                     return FieldList.Create(this, ref recordLength);
                 case LEAF_ENUM_e.FunctionIdentifier:
                     return FunctionIdentifier.Create(_reader, ref recordLength);
+                case LEAF_ENUM_e.Index:
+                    return Microsoft.CodeView.Index.Create(_reader, ref recordLength);
                 case LEAF_ENUM_e.Label:
                     try { return _reader.Read<Label>(); }
                     finally { recordLength -= Label.Size; }
