@@ -6,7 +6,7 @@ namespace PdbReader
 {
     public class Pdb
     {
-        internal const string DebuggedPdbName = "EdpNotify.pdb";
+        internal const string DebuggedPdbName = "IEUI.pdb";
         private const string SymbolCacheRelativePath = @"AppData\Local\Temp\SymbolCache";
         private DebugInformationStream _debugInfoStream;
         /// <summary>An array of flags describing blocks that are known to be in use.</summary>
