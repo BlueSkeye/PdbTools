@@ -58,7 +58,7 @@ namespace PdbReader
         private void LoadOptionalStreamsIndex()
         {
             // Set stream position which should be near the end of the DBI stream.
-            int newOffset = Marshal.SizeOf<DBIStreamHeader>() + _header.ModInfoSize +
+            ulong newOffset = DBIStreamHeader.Size + _header.ModInfoSize +
                 _header.SectionContributionSize + _header.SectionMapSize +
                 _header.SourceInfoSize + _header.TypeServerMapSize +
                 _header.ECSubstreamSize;
@@ -66,53 +66,65 @@ namespace PdbReader
 
             // Read optional streams index.
             _fpoDataStreamIndex = GetOptionalStreamIndex();
+            _owner.AssertValidStreamNumber(_fpoDataStreamIndex);
             _exceptionDataStreamIndex = GetOptionalStreamIndex();
+            _owner.AssertValidStreamNumber(_exceptionDataStreamIndex);
             _fixupDataStreamIndex = GetOptionalStreamIndex();
+            _owner.AssertValidStreamNumber(_fixupDataStreamIndex);
             _omapToSourceMappingStreamIndex = GetOptionalStreamIndex();
+            _owner.AssertValidStreamNumber(_omapToSourceMappingStreamIndex);
             _omapFromSourceMappingStreamIndex = GetOptionalStreamIndex();
+            _owner.AssertValidStreamNumber(_omapFromSourceMappingStreamIndex);
             _sectionHeaderDataStreamIndex = GetOptionalStreamIndex();
+            _owner.AssertValidStreamNumber(_sectionHeaderDataStreamIndex);
             _tokenToRIDMappingStreamIndex = GetOptionalStreamIndex();
+            _owner.AssertValidStreamNumber(_tokenToRIDMappingStreamIndex);
             _xdataStreamIndex = GetOptionalStreamIndex();
+            _owner.AssertValidStreamNumber(_xdataStreamIndex);
             _pdataStreamIndex = GetOptionalStreamIndex();
+            _owner.AssertValidStreamNumber(_pdataStreamIndex);
             _newFPODataStreamIndex = GetOptionalStreamIndex();
+            _owner.AssertValidStreamNumber(_newFPODataStreamIndex);
             _originalSectionHeaderDataStreamIndex = GetOptionalStreamIndex();
+            _owner.AssertValidStreamNumber(_originalSectionHeaderDataStreamIndex);
         }
 
         public void LoadEditAndContinueMappings()
         {
             // TODO : Stream structure still unclear.
             return;
-            // Set stream position
-            int mappingStartOffset = Marshal.SizeOf<DBIStreamHeader>() + _header.ModInfoSize +
-                _header.SectionContributionSize + _header.SectionMapSize +
-                _header.SourceInfoSize + _header.TypeServerMapSize;
-            _reader.Offset = Pdb.SafeCastToUint32(mappingStartOffset);
+            //// Set stream position
+            //ulong mappingStartOffset = (uint)Marshal.SizeOf<DBIStreamHeader>() + _header.ModInfoSize +
+            //    _header.SectionContributionSize + _header.SectionMapSize +
+            //    _header.SourceInfoSize + _header.TypeServerMapSize;
+            //_reader.Offset = Pdb.SafeCastToUint32(mappingStartOffset);
 
-            EditAndContinueMappingHeader header = _reader.Read<EditAndContinueMappingHeader>();
-            if (EditAndContinueMappingHeader.SignatureValue != header.Signature) {
-                throw new PDBFormatException(
-                    $"Invalid type server mapping signature 0x{header.Signature}");
-            }
+            //EditAndContinueMappingHeader header = _reader.Read<EditAndContinueMappingHeader>();
+            //if (EditAndContinueMappingHeader.SignatureValue != header.Signature) {
+            //    throw new PDBFormatException(
+            //        $"Invalid type server mapping signature 0x{header.Signature}");
+            //}
 
-            uint stringIndex = 0;
-            uint stringPoolStartOffset = _reader.Offset;
-            uint remainingPoolBytes = header.StringPoolBytesSize;
-            while (0 < remainingPoolBytes) {
-                uint stringPoolRelativeOffset = _reader.Offset - stringPoolStartOffset;
-                Console.WriteLine(
-                    $"At offset global/relative 0x{_reader.GetGlobalOffset().Value:X8} / 0x{(stringPoolRelativeOffset):X8}");
-                string input = _reader.ReadNTBString(ref remainingPoolBytes);
-                Console.WriteLine($"\t#{stringIndex++} : {input}");
-            }
-            uint mappingRelativeOffset = _reader.Offset - (uint)mappingStartOffset;
-            throw new NotImplementedException();
+            //uint stringIndex = 0;
+            //uint stringPoolStartOffset = _reader.Offset;
+            //uint remainingPoolBytes = header.StringPoolBytesSize;
+            //while (0 < remainingPoolBytes) {
+            //    uint stringPoolRelativeOffset = _reader.Offset - stringPoolStartOffset;
+            //    Console.WriteLine(
+            //        $"At offset global/relative 0x{_reader.GetGlobalOffset().Value:X8} / 0x{(stringPoolRelativeOffset):X8}");
+            //    string input = _reader.ReadNTBString(ref remainingPoolBytes);
+            //    Console.WriteLine($"\t#{stringIndex++} : {input}");
+            //}
+            //uint mappingRelativeOffset = _reader.Offset - (uint)mappingStartOffset;
+            //throw new NotImplementedException();
         }
 
         public void LoadFileInformations()
         {
             // Set stream position
-            int newOffset = Marshal.SizeOf<DBIStreamHeader>() + _header.ModInfoSize +
-                _header.SectionContributionSize + _header.SectionMapSize;
+            ulong newOffset = (uint)Marshal.SizeOf<DBIStreamHeader>() +
+                _header.ModInfoSize + _header.SectionContributionSize +
+                _header.SectionMapSize;
             _reader.Offset = Pdb.SafeCastToUint32(newOffset);
             IStreamGlobalOffset globalOffset = _reader.GetGlobalOffset();
 
@@ -247,7 +259,7 @@ namespace PdbReader
 
             // Read stream content.
             uint offset = 0;
-            int totalSize = _header.ModInfoSize;
+            uint totalSize = _header.ModInfoSize;
             int moduleIndex = 0;
             for(; offset < totalSize; moduleIndex++) {
                 ModuleInfoRecord record = _reader.Read<ModuleInfoRecord>();
@@ -366,7 +378,8 @@ namespace PdbReader
         public void LoadSectionContributions()
         {
             // Set stream position
-            int newOffset = Marshal.SizeOf<DBIStreamHeader>() + _header.ModInfoSize;
+            ulong newOffset = (uint)Marshal.SizeOf<DBIStreamHeader>() +
+                _header.ModInfoSize;
             _reader.Offset = Pdb.SafeCastToUint32(newOffset);
 
             // Read stream content.
@@ -392,8 +405,8 @@ namespace PdbReader
         public SectionMapEntry[] LoadSectionMappings()
         {
             // Set stream position
-            int newOffset = Marshal.SizeOf<DBIStreamHeader>() + _header.ModInfoSize +
-                _header.SectionContributionSize;
+            ulong newOffset = (uint)Marshal.SizeOf<DBIStreamHeader>() +
+                _header.ModInfoSize + _header.SectionContributionSize;
             _reader.Offset = Pdb.SafeCastToUint32(newOffset);
 
             ushort sectionDescriptorsCount = _reader.ReadUInt16();
@@ -412,17 +425,17 @@ namespace PdbReader
                 return;
             }
             // Set stream position
-            int newOffset = Marshal.SizeOf<DBIStreamHeader>() + _header.ModInfoSize +
-                _header.SectionContributionSize + _header.SectionMapSize +
-                _header.SourceInfoSize;
+            ulong newOffset = (uint)Marshal.SizeOf<DBIStreamHeader>() +
+                _header.ModInfoSize + _header.SectionContributionSize +
+                _header.SectionMapSize + _header.SourceInfoSize;
             _reader.Offset = Pdb.SafeCastToUint32(newOffset);
-
             throw new NotImplementedException();
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct DBIStreamHeader
         {
+            internal static readonly uint Size = (uint)Marshal.SizeOf<DBIStreamHeader>();
             /// <summary>Always uint.MaxValue.</summary>
             internal uint Magic;
             /// <summary>this value always appears to be V70, and it is not clear what the other
@@ -454,21 +467,21 @@ namespace PdbReader
             /// <summary>Unknown</summary>
             internal ushort PdbDllRbld;
             /// <summary>The length of the Module Info Substream.</summary>
-            internal int ModInfoSize;
+            internal uint ModInfoSize;
             /// <summary>The length of the Section Contribution Substream.</summary>
-            internal int SectionContributionSize;
+            internal uint SectionContributionSize;
             /// <summary>The length of the Section Map Substream.</summary>
-            internal int SectionMapSize;
+            internal uint SectionMapSize;
             /// <summary>The length of the File Info Substream.</summary>
-            internal int SourceInfoSize;
+            internal uint SourceInfoSize;
             /// <summary>The length of the Type Server Map Substream.</summary>
-            internal int TypeServerMapSize;
+            internal uint TypeServerMapSize;
             /// <summary>The index of the MFC type server in the Type Server Map Substream.</summary>
             internal uint MFCTypeServerIndex;
             /// <summary>The length of the Optional Debug Header Stream.</summary>
             internal int OptionalDbgHeaderSize;
             /// <summary>The length of the EC Substream.</summary>
-            internal int ECSubstreamSize;
+            internal uint ECSubstreamSize;
             /// <summary>A bitfield containing various information about how the program was
             /// built. For bit layout <see cref="HasConflictingTypes()"/>
             /// </summary>

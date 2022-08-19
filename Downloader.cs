@@ -130,7 +130,7 @@ namespace PdbDownloader
                     //}
                     return symbolFile;
                 }
-                catch {
+                catch (Exception e){
                     if (IntPtr.Zero != _detectorLoadedAddress) {
                         Marshal.FreeHGlobal(_detectorLoadedAddress);
                     }
@@ -527,8 +527,8 @@ namespace PdbDownloader
                 $"{MicrosoftSymbolServer}/{pdbFileName}/{symbolServerFormattedGuid}{pdb70.Age:X}/{pdbFileName}");
             using (HttpClient httpClient = new HttpClient()) {
                 try {
-                    HttpResponseMessage response = await httpClient
-                        .GetAsync(symbolFileUrl);
+                    HttpResponseMessage response =
+                        await httpClient.GetAsync(symbolFileUrl);
                     response.EnsureSuccessStatusCode();
                     using (Stream pdbContent = response.Content.ReadAsStream()) {
                         FileInfo targetFile = new FileInfo(
@@ -542,10 +542,15 @@ namespace PdbDownloader
                         return targetFile;
                     }
                 }
-                catch (HttpRequestException e) {
+                catch (HttpRequestException hre) {
                     Console.WriteLine(
                         $"WARN : PDB file {simplePdbFileName} version {symbolServerFormattedGuid} download failed.");
-                    Console.WriteLine($"Message : {e.Message}");
+                    Console.WriteLine($"Message : {hre.Message}");
+                    return null;
+                }
+                catch (TaskCanceledException e) {
+                    Console.WriteLine(
+                        $"WARN : PDB file {simplePdbFileName} download has been canceled.");
                     return null;
                 }
             }

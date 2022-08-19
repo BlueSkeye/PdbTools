@@ -6,7 +6,7 @@ namespace PdbReader
 {
     public class Pdb
     {
-        internal const string DebuggedPdbName = "";
+        internal const string DebuggedPdbName = "EdpNotify.pdb";
         private const string SymbolCacheRelativePath = @"AppData\Local\Temp\SymbolCache";
         private DebugInformationStream _debugInfoStream;
         /// <summary>An array of flags describing blocks that are known to be in use.</summary>
@@ -14,6 +14,7 @@ namespace PdbReader
         private MemoryMappedFile _mappedPdb;
         private MemoryMappedViewAccessor _mappedPdbView;
         internal readonly FileInfo _pdbFile;
+        internal static bool _skipCandidate = !string.IsNullOrEmpty(DebuggedPdbName);
         private List<List<uint>> _streamDescriptors = new List<List<uint>>();
         private Dictionary<string, uint> _streamIndexByName;
         private uint[] _streamSizes;
@@ -81,9 +82,12 @@ namespace PdbReader
 
         internal MSFSuperBlock SuperBlock => _superBlock;
 
-        internal void AssertValidStreamNumber(uint candidate)
+        internal void AssertValidStreamNumber(ushort? candidate, bool nonExistingIsValid = true)
         {
-            if (!IsValidStreamNumber(candidate)) {
+            if (null == candidate) {
+                return;
+            }
+            if (!IsValidStreamNumber(candidate.Value)) {
                 throw new PDBFormatException($"Invalid stream number #{candidate} encountered.");
             }
         }
@@ -153,10 +157,13 @@ namespace PdbReader
 
         public static Pdb? Create(FileInfo target, TraceFlags traceFlags = 0, bool strictChecks = false)
         {
-            if (   !string.IsNullOrEmpty(DebuggedPdbName)
-                && (0 != string.Compare(target.Name, DebuggedPdbName, true)))
-            {
-                return null;
+            if (_skipCandidate && !string.IsNullOrEmpty(DebuggedPdbName)) {
+                if (0 != string.Compare(target.Name, DebuggedPdbName, true)) {
+                    Console.WriteLine($"Skipping {target.Name} for debugging purpose");
+                    return null;
+                }
+                _skipCandidate = false;
+                bool doBreak = true;
             }
             Pdb result = new Pdb(target, traceFlags, strictChecks);
             // Verify signature.
@@ -289,7 +296,7 @@ namespace PdbReader
             }
         }
 
-        internal bool IsValidStreamNumber(uint candidate)
+        internal bool IsValidStreamNumber(ushort candidate)
         {
             return (candidate < _streamDescriptors.Count);
         }
@@ -504,9 +511,15 @@ namespace PdbReader
             _knownInUseBlocks[blockIndex] = true;
         }
 
-        internal static uint SafeCastToUint32(int value)
+        internal static uint SafeCastToUint32(long value)
         {
             if (0 > value) { throw new BugException(); }
+            return SafeCastToUint32((ulong)value);
+        }
+
+        internal static uint SafeCastToUint32(ulong value)
+        {
+            if (uint.MaxValue < value) { throw new BugException(); }
             return (uint)value;
         }
 
