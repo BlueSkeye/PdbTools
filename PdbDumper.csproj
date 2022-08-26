@@ -19,6 +19,8 @@
     <Compile Remove="BugException.cs" />
     <Compile Remove="DebugInformationStream.cs" />
     <Compile Remove="Downloader.cs" />
+    <Compile Remove="HashTable.cs" />
+    <Compile Remove="HashTableHeader.cs" />
     <Compile Remove="HashTableReader.cs" />
     <Compile Remove="IdIndexedStream.cs" />
     <Compile Remove="IMAGE_BASE_RELOCATION.cs" />
@@ -30,6 +32,7 @@
     <Compile Remove="IMAGE_OPTIONAL_HEADER64.cs" />
     <Compile Remove="IMAGE_SECTION_HEADER.cs" />
     <Compile Remove="IndexedStream.cs" />
+    <Compile Remove="IPdb.cs" />
     <Compile Remove="IStreamGlobalOffset.cs" />
     <Compile Remove="ModuleInfoRecord.cs" />
     <Compile Remove="MSFSuperBlock.cs" />
@@ -39,7 +42,13 @@
     <Compile Remove="PdbStreamHeader.cs" />
     <Compile Remove="PdbStreamReader.cs" />
     <Compile Remove="PdbStreamVersion.cs" />
+    <Compile Remove="PublicSymbolsStreamHeader.cs" />
+    <Compile Remove="PublicSymbolStream.cs" />
     <Compile Remove="RVAReaderWriter.cs" />
+    <Compile Remove="SectionContributionEntry.cs" />
+    <Compile Remove="SectionContrSubstreamVersion.cs" />
+    <Compile Remove="SectionMapEntry.cs" />
+    <Compile Remove="StringPoolHeader.cs" />
     <Compile Remove="TypeIndexedStream.cs" />
   </ItemGroup>
 

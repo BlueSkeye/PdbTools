@@ -24,14 +24,21 @@ namespace PdbDownloader
         // private bool _hasRelocations;
         private bool _isMicrosoftBinary;
         private IMAGE_OPTIONAL_HEADER64 _optionalHeader;
+        private DirectoryInfo _rootCacheDirectory;
         private RVAReaderWriter _rvaReaderWriter;
         internal IMAGE_SECTION_HEADER[] _sections;
 
         internal IMAGE_DATA_DIRECTORY[] Directories
             => _directories ?? throw new BugException();
 
-        public Downloader()
+        public Downloader(DirectoryInfo rootCacheDirectory)
         {
+            _rootCacheDirectory = rootCacheDirectory
+                ?? throw new ArgumentNullException(nameof(rootCacheDirectory));
+            if (!_rootCacheDirectory.Exists) {
+                throw new ArgumentException(
+                    $"Root cache directory doesn't exist : {rootCacheDirectory.FullName}");
+            }
             return;
         }
 
@@ -209,25 +216,6 @@ namespace PdbDownloader
         //        }
         //    }
         //}
-
-        /// <summary>Ensure the symbol cache directory exists otherwise create
-        /// it.</summary>
-        /// <returns>A descriptor for the cache directory.</returns>
-        /// <exception cref="BugException"></exception>
-        private static DirectoryInfo EnsureSymbolCacheDirectory()
-        {
-            string? userProfileDirectory = Environment.GetEnvironmentVariable("USERPROFILE");
-            if (null == userProfileDirectory) {
-                throw new BugException();
-            }
-            DirectoryInfo result = new DirectoryInfo(
-                Path.Combine(userProfileDirectory, SymbolCacheRelativePath));
-            if (!result.Exists) {
-                result.Create();
-                result.Refresh();
-            }
-            return result;
-        }
 
         internal static unsafe T FillStructure<T>(BinaryReader reader)
         {
@@ -412,7 +400,6 @@ namespace PdbDownloader
             IntPtr debugDirectoryAddress = IntPtr.Add(_detectorLoadedAddress,
                SafeCastUintToInt(directory.VirtualAddress));
             _debugDirectories = new IMAGE_DEBUG_DIRECTORY[entriesCount];
-            DirectoryInfo symbolCacheDirectory = EnsureSymbolCacheDirectory();
             for (int index = 0; index < entriesCount; index++) {
                 IMAGE_DEBUG_DIRECTORY? debugDirectory =
                     Marshal.PtrToStructure<IMAGE_DEBUG_DIRECTORY>(debugDirectoryAddress);
@@ -457,7 +444,7 @@ namespace PdbDownloader
                         string pdbFileName = new string(pdbFileNameContent, 0,
                             pdbFileNameLength);
                         PDB70 pdb70 = Marshal.PtrToStructure<PDB70>(debugInformationAddress);
-                        Task<FileInfo> pdbFileTask = TryDownloadPdbFile(symbolCacheDirectory,
+                        Task<FileInfo> pdbFileTask = TryDownloadPdbFile(_rootCacheDirectory,
                             pdb70, pdbFileName);
                         pdbFileTask.Wait();
                         if (pdbFileTask.IsFaulted) {

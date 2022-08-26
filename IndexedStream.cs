@@ -17,11 +17,13 @@ namespace PdbReader
             _header = _reader.Read<Header>();
         }
 
+        internal PdbStreamReader Reader => _reader;
+
         internal uint RecordsCount => _header.TypeIndexEnd - _header.TypeIndexBegin;
 
         internal abstract string StreamName { get; }
 
-        internal virtual void LoadLengthPrefixedRecord(uint recordIdentifier)
+        internal virtual object LoadLengthPrefixedRecord(uint recordIdentifier)
         {
             // This is a special case. When no more bytes remain on the block, the first
             // read below will modify the global offset BEFORE reading the first byte.
@@ -38,7 +40,8 @@ namespace PdbReader
                 recordStartGlobalOffset.Add(recordTotalLength);
             uint recordEndOffsetExcluded = recordStartOffset + recordTotalLength;
             LEAF_ENUM_e recordKind;
-            LoadRecord(recordIdentifier, ref recordLength, out recordKind);
+            object result = LoadRecord(recordIdentifier, ref recordLength,
+                out recordKind);
             IStreamGlobalOffset currentGlobalOffset = _reader.GetGlobalOffset();
             uint currentOffset = _reader.Offset;
             if (currentOffset < recordEndOffsetExcluded) {
@@ -78,6 +81,7 @@ namespace PdbReader
                 }
             }
             else { throw new BugException(); }
+            return result;
         }
 
         internal virtual object LoadRecord(uint recordIdentifier, ref uint recordLength,

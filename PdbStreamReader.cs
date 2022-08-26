@@ -55,6 +55,8 @@ namespace PdbReader
             }
         }
 
+        internal Pdb Owner => _pdb;
+
         /// <summary>Get number of bytes not yet read within current block.</summary>
         internal uint RemainingBlockBytes
         {
@@ -349,25 +351,26 @@ namespace PdbReader
             return result;
         }
 
-        internal string ReadNTBString(ref uint maxLength)
+        internal string ReadNTBString(ref uint maxLength, bool allowExtraNTB = false)
         {
             AssertNotEndOfStream();
             List<byte> bytes = new List<byte>();
             while (!_endOfStreamReached && (0 < maxLength)) {
                 byte inputByte = ReadByte();
                 maxLength--;
+                // We don't want to add the NULL terminator to the string.
                 if (0 == inputByte) {
                     // Sometimes, multiple NTBs may appear at end of string.
                     // We may have reached end of stream so we wouldn't be able to peek
                     // next byte.
-                    if (!_endOfStreamReached && (0 != PeekByte())) {
+                    if (   !_endOfStreamReached
+                        && (!allowExtraNTB || (0 != PeekByte())))
+                    {
                         break;
                     }
+                    continue;
                 }
-                else {
-                    // We don't want to add the NULL terminator to the string.
-                    bytes.Add(inputByte);
-                }
+                bytes.Add(inputByte);
             }
             string result = Encoding.UTF8.GetString(bytes.ToArray());
             // It looks like some but not all NTB strings are further padded with additional

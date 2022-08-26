@@ -4,16 +4,17 @@ using System.Text;
 
 namespace PdbReader
 {
-    public class Pdb
+    public class Pdb : IPdb
     {
-        internal const string DebuggedPdbName = "srm.pdb";
-        private const string SymbolCacheRelativePath = @"AppData\Local\Temp\SymbolCache";
+        internal const string DebuggedPdbName = "";
+        private const string StringPoolStreamName = "/names";
         private DebugInformationStream _debugInfoStream;
         /// <summary>An array of flags describing blocks that are known to be in use.</summary>
         private bool[] _knownInUseBlocks;
         private MemoryMappedFile _mappedPdb;
         private MemoryMappedViewAccessor _mappedPdbView;
         internal readonly FileInfo _pdbFile;
+        private Dictionary<uint, string> _pooledStringByOffset;
         internal static bool _skipCandidate = !string.IsNullOrEmpty(DebuggedPdbName);
         private List<List<uint>> _streamDescriptors = new List<List<uint>>();
         private Dictionary<string, uint> _streamIndexByName;
@@ -80,7 +81,28 @@ namespace PdbReader
             set { _strictChecksEnabled = value; }
         }
 
+        public uint StringPoolStreamIndex
+        {
+            get
+            {
+                uint result;
+                if (!_streamIndexByName.TryGetValue(StringPoolStreamName, out result)) {
+                    throw new PDBFormatException(
+                        $"Mandatory stream '{StringPoolStreamName}' not found.");
+                }
+                return result;
+            }
+        }
+
         internal MSFSuperBlock SuperBlock => _superBlock;
+
+        private void AssertDebugInformation()
+        {
+            if (null == _debugInfoStream) {
+                throw new BugException("DBI stream should have been instantiated.");
+            }
+            return;
+        }
 
         internal void AssertValidStreamNumber(ushort? candidate, bool nonExistingIsValid = true)
         {
@@ -186,29 +208,65 @@ namespace PdbReader
                 // result.CheckBlocksMappingConsistency(result._blockMapBlocksCount);
                 result._freeBlockMaps = null;
             }
-            // TODO : Partially completed
-            // LoadInfoStream();
+            result.LoadInfoStream();
             result._debugInfoStream = new DebugInformationStream(result);
+            result.EnsureStringPoolBuffering();
             return result;
         }
 
-        /// <summary>Ensure the symbol cache directory exists otherwise create
-        /// it.</summary>
-        /// <returns>A descriptor for the cache directory.</returns>
-        /// <exception cref="BugException"></exception>
-        private static DirectoryInfo EnsureSymbolCacheDirectory()
+        public void DBIDump(BinaryWriter writer)
         {
-            string? userProfileDirectory = Environment.GetEnvironmentVariable("USERPROFILE");
-            if (null == userProfileDirectory) {
-                throw new BugException();
+            PdbStreamReader reader = new PdbStreamReader(this, 3);
+            uint blockSize = _superBlock.BlockSize;
+            uint chunksPerBlock = 16;
+            uint chunkSize = chunksPerBlock * blockSize;
+            byte[] buffer = new byte[chunkSize];
+            uint remainingBytes = reader.StreamSize;
+            while (0 < remainingBytes) {
+                uint readSize = Math.Min(remainingBytes, chunkSize);
+                _mappedPdbView.ReadArray<byte>(reader.GetGlobalOffset().Value,
+                    buffer, 0, (int)readSize);
+                reader.Offset += readSize;
+                writer.Write(buffer, 0, Pdb.SafeCastToInt32(readSize));
+                remainingBytes -= readSize;
             }
-            DirectoryInfo result = new DirectoryInfo(
-                Path.Combine(userProfileDirectory, SymbolCacheRelativePath));
-            if (!result.Exists) {
-                result.Create();
-                result.Refresh();
+            return;
+        }
+
+        private void EnsureStringPoolBuffering()
+        {
+            if (null != _pooledStringByOffset) {
+                return;
             }
-            return result;
+            _pooledStringByOffset = new Dictionary<uint, string>();
+            uint stringPoolStreamIndex = StringPoolStreamIndex;
+            PdbStreamReader reader = new PdbStreamReader(this, stringPoolStreamIndex);
+            uint streamSize = _streamSizes[stringPoolStreamIndex];
+#if DEBUG
+            Console.WriteLine("POOLED STRINGS ==================");
+#endif
+            StringPoolHeader header = reader.Read<StringPoolHeader>();
+            if (StringPoolHeader.StringPoolHeaderSignature != header.Signature) {
+                throw new PDBFormatException($"Invalid string pool header signature 0x{header.Signature:X8}");
+            }
+            uint remainingBytes = header.ByteSize;
+            while (0 < remainingBytes) {
+                uint key = reader.Offset - StringPoolHeader.Size;
+                string pooledString = reader.ReadNTBString(ref remainingBytes);
+                _pooledStringByOffset.Add(key, pooledString);
+#if DEBUG
+                Console.WriteLine($"\t0x{key:X8} : '{pooledString}'");
+#endif
+            }
+            return;
+        }
+
+        private IEnumerable<object> EnumeratePublicSymbols()
+        {
+            PublicSymbolStream publicSymbolStream = new PublicSymbolStream(this,
+                SafeCastToUint16(_debugInfoStream.PublicSymbolsStreamIndex));
+            publicSymbolStream.Load();
+            throw new NotImplementedException();
         }
 
         /// <summary></summary>
@@ -229,6 +287,34 @@ namespace PdbReader
             Marshal.Copy(localBuffer, 0, IntPtr.Add(buffer, bufferOffset), (int)fillSize);
         }
 
+        /// <summary>Retrieve definition of the module having the given identifier.</param>
+        /// <returns>The module definition or a null reference if no such module could be
+        /// found.</returns>
+        public ModuleInfoRecord? FindModuleById(uint moduleId)
+        {
+            AssertDebugInformation();
+            return _debugInfoStream.FindModuleById(moduleId);
+        }
+
+        /// <summary>Retrieve definition of the module within which the RVA is located.</summary>
+        /// <param name="relativeVirtualAddress">The relative virtual address to be
+        /// searched.</param>
+        /// <returns>The module definition or a null reference if no such module could be
+        /// found.</returns>
+        public ModuleInfoRecord? FindModuleByRVA(uint relativeVirtualAddress)
+        {
+            AssertDebugInformation();
+            return _debugInfoStream.FindModuleByRVA(relativeVirtualAddress);
+        }
+
+        public SectionContributionEntry? FindSectionContribution(uint relativeVirtualAddress)
+        {
+            if (null == _debugInfoStream) {
+                throw new BugException("DBI stream should have been instantiated.");
+            }
+            return _debugInfoStream.FindSectionContribution(relativeVirtualAddress);
+        }
+        
         internal uint GetBlockOffset(uint blockNumber)
         {
             if (blockNumber >= _superBlock.NumBlocks) {
@@ -241,6 +327,36 @@ namespace PdbReader
             return (uint)result;
         }
 
+        public List<string> GetModuleFiles(uint moduleIndex)
+        {
+            List<string> result = new List<string>();
+            ModuleInfoRecord? module = _debugInfoStream.FindModuleByRVA(moduleIndex);
+
+            if (null == module) {
+                throw new ArgumentException($"Invalid module index #{moduleIndex}");
+            }
+
+            return result;
+        }
+
+        internal string GetPooledStringByOffset(uint offset)
+        {
+            EnsureStringPoolBuffering();
+            string? result;
+            if (!_pooledStringByOffset.TryGetValue(offset, out result)) {
+                throw new BugException($"Unable to retrieve pooled string @ 0x{offset:X8}");
+            }
+            return result;
+        }
+
+        /// <summary>Retrieve a mapped section by its index.</summary>
+        /// <param name="index">Index of the searched mapped section.</param>
+        /// <returns>The section descriptor.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">The index value doesn't
+        /// match any mapped section index.</exception>
+        public SectionMapEntry GetSection(uint index)
+            => _debugInfoStream.GetSection(index);
+
         /// <summary>Returns an array of block indexes for the stream having the given
         /// index.</summary>
         /// <param name="streamIndex"></param>
@@ -250,6 +366,9 @@ namespace PdbReader
         /// <exception cref="ArgumentOutOfRangeException"></exception>
         internal uint[] GetStreamMap(uint streamIndex, out uint streamSize)
         {
+            if (null == _streamDescriptors) {
+                throw new BugException();
+            }
             if (_streamDescriptors.Count <= streamIndex) {
                 throw new ArgumentOutOfRangeException(nameof(streamIndex));
             }
@@ -283,6 +402,14 @@ namespace PdbReader
                 }
             }
             return Encoding.ASCII.GetString(buffer, (int)bufferOffset, stringLength);
+        }
+
+        public void InitializeSymbolsMap()
+        {
+            foreach (object symbol in EnumeratePublicSymbols()) {
+                bool doBreak = true;
+            }
+            return;
         }
 
         internal bool IsFreeBlockMapBlock(int candidate)
@@ -397,6 +524,7 @@ namespace PdbReader
                 string streamName = GetString(stringBuffer, pair.Key);
                 _streamIndexByName.Add(streamName, pair.Value);
             }
+            return;
         }
 
         /// <summary>Read the block map blocks and retrieve an array of block indexes to
@@ -517,6 +645,18 @@ namespace PdbReader
                 Console.WriteLine($"FBC : Block #{blockIndex} is in use.");
             }
             _knownInUseBlocks[blockIndex] = true;
+        }
+
+        internal static int SafeCastToInt32(uint value)
+        {
+            if (int.MaxValue < value) { throw new BugException(); }
+            return (int)value;
+        }
+
+        internal static ushort SafeCastToUint16(uint value)
+        {
+            if (ushort.MaxValue < value) { throw new BugException(); }
+            return (ushort)value;
         }
 
         internal static uint SafeCastToUint32(long value)

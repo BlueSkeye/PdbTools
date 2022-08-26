@@ -2,7 +2,7 @@
   "profiles": {
     "PdbDumper Debug|X64": {
       "commandName": "Project",
-      "commandLineArgs": "%USERPROFILE%\\AppData\\Local\\Temp\\SymbolCache\\ntdll.pdb\\FEA202D5473341CB4B29F58357A35D63\\ntdll.pdb"
+      "commandLineArgs": "-explain c:\\windows\\system32\\ntdll.dll 0x00032AD0"
     },
     "PdbReader DIR Debug|X64": {
       "commandName": "Executable",
@@ -18,6 +18,15 @@
       "commandName": "Executable",
       "executablePath": "C:\\Users\\jp.forestier\\source\\repos\\PERSO\\PDB\\PdbReader\\bin\\x64\\Debug\\net6.0\\PdbDumper.exe",
       "commandLineArgs": "-dir %windir%\\System32"
+    },
+    "PdbReader EXPLAIN Debug|X64": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Users\\jp.forestier\\source\\repos\\PERSO\\PDB\\PdbReader\\bin\\x64\\Debug\\net6.0\\PdbDumper.exe",
+      "commandLineArgs": "-explain c:\\windows\\system32\\ntdll.dll 0x00032AD0"
+    },
+    "PdbDumper DBIDUMP Debug|X64": {
+      "commandName": "Project",
+      "commandLineArgs": "-dbidump C:\\Users\\jp.forestier\\AppData\\Local\\Temp\\SymbolCache\\ntdll.pdb\\CDE75D039306834203EBD8D4E7D50369\\ntdll.pdb C:\\Temp\\Ntdll-DBI.bin"
     }
   }
 }

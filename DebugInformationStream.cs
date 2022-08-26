@@ -1,6 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-using System.Text;
-
 using PdbReader.Microsoft;
 
 namespace PdbReader
@@ -12,19 +10,22 @@ namespace PdbReader
     {
         private const uint ThisStreamIndex = 3;
         private DBIStreamHeader _header;
-        private readonly Pdb _owner;
-        private readonly PdbStreamReader _reader;
-        private ushort? _fpoDataStreamIndex;
         private ushort? _exceptionDataStreamIndex;
         private ushort? _fixupDataStreamIndex;
-        private ushort? _omapToSourceMappingStreamIndex;
+        private ushort? _fpoDataStreamIndex;
+        private List<SectionMapEntry> _mappedSections;
+        private List<ModuleInfoRecord> _modules;
+        private ushort? _newFPODataStreamIndex;
         private ushort? _omapFromSourceMappingStreamIndex;
+        private ushort? _omapToSourceMappingStreamIndex;
+        private ushort? _originalSectionHeaderDataStreamIndex;
+        private readonly Pdb _owner;
+        private Dictionary<uint, Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>> _perModuleSectionRanges;
+        private ushort? _pdataStreamIndex;
+        private readonly PdbStreamReader _reader;
         private ushort? _sectionHeaderDataStreamIndex;
         private ushort? _tokenToRIDMappingStreamIndex;
         private ushort? _xdataStreamIndex;
-        private ushort? _pdataStreamIndex;
-        private ushort? _newFPODataStreamIndex;
-        private ushort? _originalSectionHeaderDataStreamIndex;
 
         internal DebugInformationStream(Pdb owner)
         {
@@ -46,6 +47,237 @@ namespace PdbReader
             }
         }
 
+        private uint EditAndContinueSubstreamOffset
+            => TypeServerMapSubstreamOffset + _header.TypeServerMapSize;
+
+        private uint FileInformationSubstreamOffset
+            => SectionMapSubstreamOffset + _header.SectionMapSize;
+
+        private uint ModuleInformationSubstreamOffset
+            => DBIStreamHeader.Size;
+
+        private uint OptionalDebugSubstreamOffset
+            => EditAndContinueSubstreamOffset + _header.ECSubstreamSize;
+
+        internal Pdb Pdb => _owner;
+
+        internal uint PublicSymbolsStreamIndex => _header.PublicStreamIndex;
+
+        private uint SectionContributionSubstreamOffset
+            => ModuleInformationSubstreamOffset + _header.ModInfoSize;
+
+        private uint SectionMapSubstreamOffset
+            => SectionContributionSubstreamOffset + _header.SectionContributionSize;
+
+        private uint TypeServerMapSubstreamOffset
+            => FileInformationSubstreamOffset + _header.SourceInfoSize;
+
+        private int AssertValidSectionIndex(uint candidate)
+        {
+            if (null == _mappedSections) {
+                throw new BugException();
+            }
+            int trueIndex = Pdb.SafeCastToInt32(candidate);
+            if (0 == trueIndex) {
+                throw new ArgumentOutOfRangeException(nameof(candidate));
+            }
+            if (_mappedSections.Count < trueIndex) {
+                throw new ArgumentOutOfRangeException(nameof(candidate));
+            }
+            return trueIndex - 1;
+        }
+
+        /// <summary>Make sure modules definition - as well as associated sections - are
+        /// loaded, i.e. <see cref="_modules"/> and <see cref="_modulesPerIndex"/> members
+        /// are properly initialized and populated.</summary>
+        public void EnsureModulesAreLoaded()
+        {
+            try {
+                if (null != _modules) {
+                    return;
+                }
+                _modules = new List<ModuleInfoRecord>();
+
+                // Set stream position at the begining of the module information substream.
+                uint newOffset = ModuleInformationSubstreamOffset;
+                _reader.Offset = newOffset;
+
+                uint totalSize = _header.ModInfoSize;
+                uint endOffsetExcluded = _reader.Offset + totalSize;
+                int moduleIndex = 0;
+                Console.WriteLine("MODULES ======================");
+                // Read each record in turn.
+                for (; _reader.Offset < endOffsetExcluded; moduleIndex++) {
+                    ModuleInfoRecord scannedModule = ModuleInfoRecord.Create(_reader);
+#if DEBUG
+                    scannedModule.Dump(moduleIndex, string.Empty);
+                    if (ushort.MaxValue != scannedModule.SymbolStreamIndex) {
+                        try { new PdbStreamReader(_owner, scannedModule.SymbolStreamIndex); }
+                        catch {
+                            Console.WriteLine(
+                                $"WARN : Invalid symbol stream index {scannedModule.SymbolStreamIndex} on module {moduleIndex}");
+                        }
+                    }
+#endif
+                    _modules.Add(scannedModule);
+#if DEBUG
+                    continue;
+#endif
+                }
+            }
+            finally {
+#if DEBUG
+                Console.WriteLine($"{_modules.Count} modules found.");
+#endif
+                EnsureSectionMappingIsLoaded();
+            }
+            return;
+        }
+
+        public void EnsureSectionMappingIsLoaded()
+        {
+            if (null == _modules) {
+                throw new BugException();
+            }
+            if (null != _mappedSections) {
+                return;
+            }
+            // Set stream position at the begining of the section header data substream.
+            uint newOffset = SectionMapSubstreamOffset;
+            _reader.Offset = newOffset;
+            SectionMapHeader header = _reader.Read<SectionMapHeader>();
+            if (ushort.MaxValue == header.SecCount) {
+                throw new NotSupportedException();
+            }
+            _mappedSections = new List<SectionMapEntry>();
+            for(int index = 0; index < header.SecCount; index++) {
+                SectionMapEntry scannedEntry = SectionMapEntry.Create(_reader);
+                _mappedSections.Add(scannedEntry);
+            }
+#if DEBUG
+            Console.WriteLine($"{_mappedSections.Count} mapped sections found.");
+#endif
+            return;
+        }
+
+        private void EnsureSectionContributionsAreLoaded()
+        {
+            EnsureModulesAreLoaded();
+            if (null != _perModuleSectionRanges) {
+                return;
+            }
+            Console.WriteLine("SECTIONS ======================");
+            // Set stream position at the begining of the section contribution substream.
+            uint newOffset = SectionContributionSubstreamOffset;
+            _reader.Offset = newOffset;
+
+            SectionContributionSubstreamVersion version =
+                (SectionContributionSubstreamVersion)_reader.ReadUInt32();
+            uint totalSize = _header.SectionContributionSize;
+            uint endOffsetExcluded = _reader.Offset + totalSize;
+            // Read each record in turn.
+            uint contributionIndex = 0;
+            _perModuleSectionRanges =
+                new Dictionary<uint, Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>>();
+            uint totalRanges = 0;
+            for (; _reader.Offset < endOffsetExcluded; contributionIndex++) {
+#if DEBUG
+                uint globalOffset = _reader.GetGlobalOffset().Value;
+#endif
+                totalRanges++;
+                SectionContributionEntry entry = SectionContributionEntry.Create(this, _reader);
+#if DEBUG
+                SectionMapEntry mappedSection = entry.GetSection();
+#endif
+                Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>? moduleRanges;
+                if (!_perModuleSectionRanges.TryGetValue(entry.ModuleIndex, out moduleRanges)) {
+                    moduleRanges = new Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>();
+                    _perModuleSectionRanges.Add(entry.ModuleIndex, moduleRanges);
+                }
+                if (null == moduleRanges) {
+                    throw new BugException();
+                }
+                ModuleInfoRecord? contributionModule = _FindModuleByIdUnsafe(entry.ModuleIndex);
+#if DEBUG
+                if (null == contributionModule) {
+                    throw new BugException();
+                }
+#endif
+                SortedMemoryRangeList<MemoryRange>? ranges;
+                if (!moduleRanges.TryGetValue(entry.Section, out ranges)) {
+                    ranges = new SortedMemoryRangeList<MemoryRange>();
+                    moduleRanges.Add(entry.Section, ranges);
+                }
+                MemoryRange thisRange =
+                    new MemoryRange(entry.Offset, (entry.Offset + entry.Size - 1));
+                // Insert in sorted order.
+                ranges.Add(thisRange, thisRange);
+#if DEBUG
+                continue;
+#endif
+            }
+#if DEBUG
+            foreach (uint moduleId in _perModuleSectionRanges.Keys) {
+                ModuleInfoRecord? module = FindModuleById(moduleId);
+                if (null == module) {
+                    throw new BugException($"No module having id {moduleId}");
+                }
+                Console.WriteLine(
+                    $"Module {moduleId} : {(module.ModuleName ?? "UNNAMED")}");
+                Dictionary<ushort, SortedMemoryRangeList<MemoryRange>> perSectionRanges =
+                    _perModuleSectionRanges[moduleId];
+                foreach (ushort sectionId in perSectionRanges.Keys) {
+                    Console.WriteLine($"\tSection {sectionId}");
+                    List<SectionContributionEntry>? sectionEntries =
+                        module.GetSectionContributionsById(sectionId);
+                    SortedMemoryRangeList<MemoryRange> ranges =
+                        perSectionRanges[sectionId];
+                    foreach(MemoryRange range in ranges.Keys) {
+                        Console.WriteLine(
+                            $"\t\t0x{range._startOffset:X8} - 0x{range._endOffset:X8}");
+                    }
+                }
+            }
+#endif
+            return;
+        }
+
+        internal ModuleInfoRecord? FindModuleById(uint moduleIdentifier)
+        {
+            EnsureModulesAreLoaded();
+            return _FindModuleByIdUnsafe(moduleIdentifier);
+        }
+
+        internal ModuleInfoRecord? FindModuleByRVA(uint moduleIndex)
+        {
+            throw new NotImplementedException();
+            //EnsureModulesAreLoaded();
+            //return _FindModuleByRVAUnsafe(moduleIndex);
+        }
+
+        /// <summary></summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        /// <remarks>The method is deemed unsafe because module are expected to be
+        /// already loaded and no check is performed on this.</remarks>
+        private ModuleInfoRecord? _FindModuleByIdUnsafe(uint index)
+        {
+            int trueIndex = Pdb.SafeCastToInt32(index);
+            if (_modules.Count <= index) {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+            return _modules[trueIndex];
+        }
+
+        internal SectionContributionEntry? FindSectionContribution(
+            uint relativeVirtualAddress)
+        {
+            EnsureSectionContributionsAreLoaded();
+
+            throw new NotImplementedException();
+        }
+
         private ushort? GetOptionalStreamIndex()
         {
             ushort input = _reader.ReadUInt16();
@@ -53,6 +285,17 @@ namespace PdbReader
             // a 0 value which being one of the fixed stream indexes (Old Directory)
             // is obviously an invalid value.
             return ((0 == input) || (ushort.MaxValue == input)) ? null : input;
+        }
+
+        /// <summary>Retrieve a mapped section by its index.</summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        /// <exception cref="BugException"></exception>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public SectionMapEntry GetSection(uint index)
+        {
+            int trueIndex = AssertValidSectionIndex(index);
+            return _mappedSections[trueIndex];
         }
 
         private void LoadOptionalStreamsIndex()
@@ -185,7 +428,8 @@ namespace PdbReader
                 }
                 expectedFilesCount = moduleIndices[checkIndex + 1] - moduleIndices[checkIndex];
                 if (expectedFilesCount != moduleFilesCount[checkIndex]) {
-                    throw new PDBFormatException($"Module #{checkIndex} is expected to have {expectedFilesCount} files. Modules file count value is {moduleFilesCount[checkIndex]}");
+                    throw new PDBFormatException(
+                        $"Module #{checkIndex} is expected to have {expectedFilesCount} files. Modules file count value is {moduleFilesCount[checkIndex]}");
                 }
 #endif
             }
@@ -231,7 +475,9 @@ namespace PdbReader
             if (_owner.ShouldTraceModules) {
                 int offsetIndex = 0;
                 for(uint moduleIndex = 0; moduleIndex < modulesCount; moduleIndex++) {
+#if DEBUG
                     Console.WriteLine($"Module #{moduleIndex}");
+#endif
                     int thisModuleFilesCount = moduleFilesCount[moduleIndex];
                     for (int moduleFileIndex = 0;
                         moduleFileIndex < thisModuleFilesCount;
@@ -242,52 +488,56 @@ namespace PdbReader
                         if (!fileNameByIndex.TryGetValue(thisFileOffset, out currentFilename)) {
                             Console.WriteLine($"\tUnmatched file index {thisFileOffset}");
                         }
+#if DEBUG
                         else {
                             Console.WriteLine($"\t{currentFilename}");
                         }
+#endif
                     }
                 }
             }
             return;
         }
 
-        public void LoadModuleInformations()
-        {
-            // Set stream position
-            int newOffset = Marshal.SizeOf<DBIStreamHeader>();
-            _reader.Offset = Pdb.SafeCastToUint32(newOffset);
+//        public void LoadModuleInformations()
+//        {
+//            // Set stream position
+//            int newOffset = Marshal.SizeOf<DBIStreamHeader>();
+//            _reader.Offset = Pdb.SafeCastToUint32(newOffset);
 
-            // Read stream content.
-            uint offset = 0;
-            uint totalSize = _header.ModInfoSize;
-            int moduleIndex = 0;
-            for(; offset < totalSize; moduleIndex++) {
-                ModuleInfoRecord record = _reader.Read<ModuleInfoRecord>();
-                List<byte> stringBytes = new List<byte>();
-                // Some records have trailing NULL bytes before names. Skip them
-                byte scannedByte;
-                do { scannedByte = _reader.ReadByte(); }
-                while (0 == scannedByte);
-                while (0 != scannedByte) {
-                    stringBytes.Add(scannedByte);
-                    scannedByte = _reader.ReadByte();
-                }
-                string moduleName = Encoding.UTF8.GetString(stringBytes.ToArray());
-                stringBytes.Clear();
-                while (0 != (scannedByte = _reader.ReadByte())) {
-                    stringBytes.Add(scannedByte);
-                }
-                string objectFileName = Encoding.UTF8.GetString(stringBytes.ToArray());
-                offset = _reader.Offset;
-                if (_owner.ShouldTraceModules) {
-                    Console.WriteLine($"Module #{moduleIndex}: {moduleName}");
-                    if (!string.IsNullOrEmpty(objectFileName)) {
-                        Console.WriteLine($"\t{objectFileName}");
-                    }
-                }
-            }
-            return;
-        }
+//            // Read stream content.
+//            uint offset = 0;
+//            uint totalSize = _header.ModInfoSize;
+//            int moduleIndex = 0;
+//            for(; offset < totalSize; moduleIndex++) {
+//                ModuleInfoRecord record = ModuleInfoRecord.Create(_reader);
+//                //List<byte> stringBytes = new List<byte>();
+//                //// Some records have trailing NULL bytes before names. Skip them
+//                //byte scannedByte;
+//                //do { scannedByte = _reader.ReadByte(); }
+//                //while (0 == scannedByte);
+//                //while (0 != scannedByte) {
+//                //    stringBytes.Add(scannedByte);
+//                //    scannedByte = _reader.ReadByte();
+//                //}
+//                //string moduleName = Encoding.UTF8.GetString(stringBytes.ToArray());
+//                //stringBytes.Clear();
+//                //while (0 != (scannedByte = _reader.ReadByte())) {
+//                //    stringBytes.Add(scannedByte);
+//                //}
+//                //string objectFileName = Encoding.UTF8.GetString(stringBytes.ToArray());
+//                offset = _reader.Offset;
+//                if (_owner.ShouldTraceModules) {
+//#if DEBUG
+//                    Console.WriteLine($"Module #{moduleIndex}: {record.ModuleName}");
+//                    if (!string.IsNullOrEmpty(record.ObjectFileName)) {
+//                        Console.WriteLine($"\t{record.ObjectFileName}");
+//                    }
+//#endif
+//                }
+//            }
+//            return;
+//        }
 
         private List<T> LoadOptionalStream<T>(ushort? streamIndex, string streamName)
             where T : struct
@@ -335,8 +585,8 @@ namespace PdbReader
             }
             if (null != _sectionHeaderDataStreamIndex) {
                 // Dump of all section headers from the original file.
-                List<SectionHeader> result = LoadOptionalStream<SectionHeader>(_sectionHeaderDataStreamIndex,
-                    "Section Headers");
+                List<IMAGE_SECTION_HEADER> result = LoadOptionalStream<IMAGE_SECTION_HEADER>(
+                    _sectionHeaderDataStreamIndex, "Section Headers");
             }
             if (null != _tokenToRIDMappingStreamIndex) {
                 // TODO : Stream content is undocumented.
@@ -399,23 +649,7 @@ namespace PdbReader
             }
             ushort segmentCount = _reader.ReadUInt16();
             ushort logicalSegmentCount = _reader.ReadUInt16();
-            SectionMapEntry mapEntry = _reader.Read<SectionMapEntry>();
-        }
-
-        public SectionMapEntry[] LoadSectionMappings()
-        {
-            // Set stream position
-            ulong newOffset = (uint)Marshal.SizeOf<DBIStreamHeader>() +
-                _header.ModInfoSize + _header.SectionContributionSize;
-            _reader.Offset = Pdb.SafeCastToUint32(newOffset);
-
-            ushort sectionDescriptorsCount = _reader.ReadUInt16();
-            ushort sectionLogicalDescriptorsCount = _reader.ReadUInt16();
-            SectionMapEntry[] result = new SectionMapEntry[sectionDescriptorsCount];
-            for(int index = 0; index < sectionDescriptorsCount; index++) {
-                result[index] = _reader.Read<SectionMapEntry>();
-            }
-            return result;
+            SectionMapEntry mapEntry = SectionMapEntry.Create(_reader);
         }
 
         public void LoadTypeServerMappings()
@@ -582,130 +816,172 @@ namespace PdbReader
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct SectionHeader
+        internal struct SectionMapHeader
         {
-            public byte Name0;
-            public byte Name1;
-            public byte Name2;
-            public byte Name3;
-            public byte Name4;
-            public byte Name5;
-            public byte Name6;
-            public byte Name7;
-            public uint VirtualSize;
-            public uint VirtualAddress;
-            public uint SIzeOfRawData;
-            public uint PointerToRawData;
-            public uint PointerToRelocations;
-            public uint PointerToLineNumbers;
-            public ushort NumberOfRelocations;
-            public ushort NumberOfLineNumbers;
-            public _Flags Characteristics;
+            // Number of segment descriptors in table
+            internal ushort SecCount;
+            // Number of logical segment descriptors
+            internal ushort SecCountLog;
+        }
 
-            [Flags()]
-            public enum _Flags : uint
+        private class SortedMemoryRangeList<T> :
+            SortedList<MemoryRange, T>
+        {
+            internal SortedMemoryRangeList()
+                : base(MemoryRange.Comparer.Singleton)
             {
-                /// <summary>The section should not be padded to the next boundary.
-                /// This flag is obsolete and is replaced by IMAGE_SCN_ALIGN_1BYTES.
-                /// This is valid only for object files.</summary>
-                NoPadding = 0x00000008,
-                /// <summary>The section contains executable code.</summary>
-                ContainsCode = 0x00000020,
-                /// <summary>The section contains initialized data.</summary>
-                InitializedData = 0x00000040,
-                /// <summary>The section contains uninitialized data.</summary>
-                UninitializedData = 0x00000080,
-                /// <summary>The section contains comments or other information.
-                /// The.drectve section has this type. This is valid for object files only.</summary>
-                LinkerInfo = 0x00000200,
-                /// <summary>The section will not become part of the image. This is valid
-                /// only for object files.</summary>
-                LinkerShouldRemove = 0x00000800,
-                /// <summary>The section contains COMDAT data. For more information, see COMDAT
-                /// Sections (Object Only). This is valid only for object files.</summary>
-                COMDATData = 0x00001000,
-                /// <summary>The section contains data referenced through the global pointer (GP).</summary>
-                GlobalPointerReferencedData = 0x00008000,
-                /// <summary>Align data on a 1-byte boundary. Valid only for object files.</summary>
-                AlignTo1Byte = 0x00100000,
-                /// <summary>Align data on a 2-byte boundary. Valid only for object files.</summary>
-                AlignTo2Bytes = 0x00200000,
-                /// <summary>Align data on a 4-byte boundary. Valid only for object files.</summary>
-                AlignTo4Bytes = 0x00300000,
-                /// <summary>Align data on a 8-byte boundary. Valid only for object files.</summary>
-                AlignTo8Bytes = 0x00400000,
-                /// <summary>Align data on a 16-byte boundary. Valid only for object files.</summary>
-                AlignTo16Bytes = 0x00500000,
-                /// <summary>Align data on a 32-byte boundary. Valid only for object files.</summary>
-                AlignTo32Bytes = 0x00600000,
-                /// <summary>Align data on a 64-byte boundary. Valid only for object files.</summary>
-                AlignTo64Bytes = 0x00700000,
-                /// <summary>Align data on a 128-byte boundary. Valid only for object files.</summary>
-                AlignTo128Bytes = 0x00800000,
-                /// <summary>Align data on a 256-byte boundary. Valid only for object files.</summary>
-                AlignTo256Bytes = 0x00900000,
-                /// <summary>Align data on a 512-byte boundary. Valid only for object files.</summary>
-                AlignTo512Bytes = 0x00A00000,
-                /// <summary>Align data on a 1024-byte boundary. Valid only for object files.</summary>
-                AlignTo1024Bytes = 0x00B00000,
-                /// <summary>Align data on a 2048-byte boundary. Valid only for object files.</summary>
-                AlignTo2048Bytes = 0x00C00000,
-                /// <summary>Align data on a 4096-byte boundary. Valid only for object files.</summary>
-                AlignTo4096Bytes = 0x00D00000,
-                /// <summary>Align data on a 8192-byte boundary. Valid only for object files.</summary>
-                AlignTo8192Bytes = 0x00E00000,
-                /// <summary>The section contains extended relocations.</summary>
-                HasExtendedRelocations = 0x01000000,
-                /// <summary>The section can be discarded as needed.</summary>
-                Discardable = 0x02000000,
-                /// <summary>The section cannot be cached.</summary>
-                NotCacheable = 0x04000000,
-                /// <summary>The section is not pageable.</summary>
-                NotPageable = 0x08000000,
-                /// <summary>The section can be shared in memory.</summary>
-                Shareable = 0x10000000,
-                /// <summary>The section can be executed as code.</summary>
-                Executable = 0x20000000,
-                /// <summary>The section can be read.</summary>
-                Readable = 0x40000000,
-                /// <summary>The section can be written to.</summary>
-                Writable = 0x80000000
+            }
+
+            internal T this[int index]
+            {
+                get
+                {
+                    if (0 > index) {
+                        throw new ArgumentOutOfRangeException();
+                    }
+                    IList<MemoryRange> keys = base.Keys;
+                    if (Keys.Count <= index) {
+                        throw new ArgumentOutOfRangeException();
+                    }
+                    return base[keys[index]];
+                }
             }
         }
 
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct SectionMapEntry
+        /// <summary>A virtual memory range.</summary>
+        private class MemoryRange
         {
-            internal _Flags Flags;
-            /// <summary>Logical overlay number</summary>
-            internal ushort Ovl;
-            /// <summary>Group index into descriptor array.</summary>
-            internal ushort Group;
-            internal ushort Frame;
-            /// <summary>Byte index of segment / group name in string table, or 0xFFFF.</summary>
-            internal ushort SectionName;
-            /// <summary>Byte index of class in string table, or 0xFFFF.</summary>
-            internal ushort ClassName;
-            /// <summary>Byte offset of the logical segment within physical segment.
-            /// If group is set in flags, this is the offset of the group.</summary>
-            internal uint Offset;
-            /// <summary>Byte count of the segment or group.</summary>
-            internal uint SectionLength;
+            internal readonly uint _startOffset;
+            internal readonly uint _endOffset;
+            // internal List<ContributionRange>? _subRanges;
 
-            [Flags()]
-            internal enum _Flags : ushort
+            internal MemoryRange(uint startOffset, uint endOffset)
             {
-                Read = 0x0001,
-                Write = 0x0002,
-                Execute = 0x0004,
-                /// <summary>Descriptor describes a 32-bit linear address.</summary>
-                AddressIs32Bit = 0x0008,
-                /// <summary>Frame represents a selector.</summary>
-                IsSelector = 0x0100,
-                /// <summary>Frame represents an absolute address.</summary>
-                IsAbsoluteAddress = 0x0200,
-                /// <summary>If set, descriptor represents a group.</summary>
-                IsGroup = 0x0400
+                if (_endOffset < _startOffset) {
+                    throw new ArgumentException();
+                }
+                _startOffset = startOffset;
+                _endOffset = endOffset;
+            }
+
+            internal bool IsGreaterThan(MemoryRange other)
+            {
+                if (null == other) {
+                    throw new ArgumentNullException();
+                }
+                return (_startOffset > other._endOffset);
+            }
+
+            internal bool IsLesserThan(MemoryRange other)
+            {
+                if (null == other) {
+                    throw new ArgumentNullException();
+                }
+                return (_endOffset < other._startOffset);
+            }
+
+            private bool _IsSubRangeOf(MemoryRange other)
+            {
+                if (null == other) {
+                    throw new ArgumentNullException();
+                }
+                return (_startOffset >= other._startOffset)
+                    && (_endOffset <= other._endOffset);
+            }
+
+            internal bool Overlap(MemoryRange other)
+            {
+                return _Overlap(other, true);
+            }
+
+            private bool _Overlap(MemoryRange other, bool crossChek)
+            {
+                if (null == other) {
+                    throw new ArgumentNullException();
+                }
+                if (   other.IsLesserThan(this)
+                    || other.IsGreaterThan(this)
+                    || other._IsSubRangeOf(this)
+                    || this._IsSubRangeOf(other))
+                {
+                    return false;
+                }
+                if (crossChek) {
+                    if (other._Overlap(this, false)) {
+                        throw new BugException();
+                    }
+                }
+                return true;
+            }
+
+            //internal void RegisterSubRange(ContributionRange subRange)
+            //{
+            //    if (null == subRange) {
+            //        throw new ArgumentNullException();
+            //    }
+            //    if (!subRange.IsSubRangeOf(this)) {
+            //        throw new ArgumentException();
+            //    }
+            //    if (null == _subRanges) {
+            //        _subRanges = new List<ContributionRange>();
+            //        _subRanges.Add(subRange);
+            //        return;
+            //    }
+            //    for(int index = 0; index < _subRanges.Count; index++) {
+            //        ContributionRange scannedRange = _subRanges[index];
+            //        if (subRange.IsSubRangeOf(scannedRange)) {
+            //            scannedRange.RegisterSubRange(subRange);
+            //            return;
+            //        }
+            //        if (subRange.IsLesserThan(scannedRange)) {
+            //            if (0 < index) {
+            //                if (!subRange.IsGreaterThan(_subRanges[index - 1])) {
+            //                    throw new BugException();
+            //                }
+            //            }
+            //            _subRanges.Insert(index, subRange);
+            //            return;
+            //        }
+            //        if (subRange.Overlap(scannedRange)) {
+            //            throw new BugException();
+            //        }
+            //        if (!subRange.IsGreaterThan(scannedRange)) {
+            //            throw new BugException();
+            //        }
+            //    }
+            //    _subRanges.Add(subRange);
+            //}
+
+            internal class Comparer : IComparer<MemoryRange>
+            {
+                internal static readonly Comparer Singleton = new Comparer();
+
+                private Comparer()
+                {
+                }
+
+                int IComparer<MemoryRange>.Compare(MemoryRange? x, MemoryRange? y)
+                {
+                    if (null == x) {
+                        throw new ArgumentNullException(nameof(x));
+                    }
+                    if (null == y) {
+                        throw new ArgumentNullException(nameof(y));
+                    }
+                    if (x.Overlap(y)) {
+                        throw new BugException();
+                    }
+                    if (y.Overlap(x)) {
+                        throw new BugException();
+                    }
+                    if (x.IsLesserThan(y)) {
+                        return -1;
+                    }
+                    if (y.IsLesserThan(x)) {
+                        return 1;
+                    }
+                    throw new BugException();
+                }
             }
         }
     }
