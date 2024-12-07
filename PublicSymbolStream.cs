@@ -7,7 +7,7 @@ namespace PdbReader
         private HashTable _hashTable;
         private PublicSymbolsStreamHeader _header;
         private uint[] _sections;
-        private uint[] _thunks;OS 
+        private uint[] _thunks;
 
         public PublicSymbolStream(Pdb owner, ushort index)
             : base(owner, index)
