@@ -19,45 +19,14 @@ namespace PdbDumper
         private static FileInfo _targetExecutable;
         private static Verb _verb;
 
-        public static int Main(string[] args)
+        private static int CacheFile()
         {
-            // Dirty trick to resolve some random discrepancy in assembly loading when
-            // debugging under VS 2022
-            DirectoryInfo baseDirectory =
-                new FileInfo(Assembly.GetExecutingAssembly().Location).Directory;
-            AppDomain.CurrentDomain.AssemblyResolve +=
-                delegate (object? sender, ResolveEventArgs args)
-                {
-                    AssemblyName failedName = new AssemblyName(args.Name);
-                    switch (failedName.Name) {
-                        case "PdbReader":
-                            return Assembly.LoadFile(Path.Combine(baseDirectory.FullName, "PdbReader.dll"));
-                        case "PdbDownloader":
-                            return Assembly.LoadFile(Path.Combine(baseDirectory.FullName, "PdbDownloader.dll"));
-                        default:
-                            return null;
-                    }
-                };
-            if (!ParseArgs(args)) {
-                Usage();
+            FileInfo? pdbFile = new Downloader(_rootCacheDirectory).CachePdb(_targetExecutable);
+            if (null == pdbFile) {
+                Console.WriteLine($"Can't find or load PDB for file {_targetExecutable.FullName}");
                 return 1;
             }
-            _rootCacheDirectory = new DirectoryInfo(
-                Path.Combine(
-                    Environment.GetEnvironmentVariable("USERPROFILE")
-                        ?? throw new ApplicationException(
-                            "Unexpectedly empty USERPROFILE environment variable"),
-                    DefaultSymbolCacheRelativePath));
-            switch (_verb) {
-                case Verb.Enumerate:
-                    return EnumerateFiles();
-                case Verb.DBIDump:
-                    return DBIDump();
-                case Verb.Explain:
-                    return Explain();
-                default:
-                    throw new ApplicationException($"BUG : Unknown verb {_verb}");
-            }
+            return 0;
         }
 
         private static int DBIDump()
@@ -122,8 +91,7 @@ namespace PdbDumper
 
         private static int Explain()
         {
-            FileInfo? pdbFile =
-                new Downloader(_rootCacheDirectory).CachePdb(_targetExecutable);
+            FileInfo? pdbFile = new Downloader(_rootCacheDirectory).CachePdb(_targetExecutable);
             if (null == pdbFile) {
                 Console.WriteLine($"Can't find or load PDB for file {_targetExecutable.FullName}");
                 return 1;
@@ -174,6 +142,49 @@ namespace PdbDumper
             stream.LoadRecords();
         }
 
+        public static int Main(string[] args)
+        {
+            // Dirty trick to resolve some random discrepancy in assembly loading when
+            // debugging under VS 2022
+            DirectoryInfo baseDirectory =
+                new FileInfo(Assembly.GetExecutingAssembly().Location).Directory;
+            AppDomain.CurrentDomain.AssemblyResolve +=
+                delegate (object? sender, ResolveEventArgs args)
+                {
+                    AssemblyName failedName = new AssemblyName(args.Name);
+                    switch (failedName.Name) {
+                        case "PdbReader":
+                            return Assembly.LoadFile(Path.Combine(baseDirectory.FullName, "PdbReader.dll"));
+                        case "PdbDownloader":
+                            return Assembly.LoadFile(Path.Combine(baseDirectory.FullName, "PdbDownloader.dll"));
+                        default:
+                            return null;
+                    }
+                };
+            if (!ParseArgs(args)) {
+                Usage();
+                return 1;
+            }
+            _rootCacheDirectory = new DirectoryInfo(
+                Path.Combine(
+                    Environment.GetEnvironmentVariable("USERPROFILE")
+                        ?? throw new ApplicationException(
+                            "Unexpectedly empty USERPROFILE environment variable"),
+                    DefaultSymbolCacheRelativePath));
+            switch (_verb) {
+                case Verb.Cache:
+                    return CacheFile();
+                case Verb.Enumerate:
+                    return EnumerateFiles();
+                case Verb.DBIDump:
+                    return DBIDump();
+                case Verb.Explain:
+                    return Explain();
+                default:
+                    throw new ApplicationException($"BUG : Unknown verb {_verb}");
+            }
+        }
+
         private static bool ParseArgs(string[] args)
         {
             if (0 == args.Length) {
@@ -181,6 +192,19 @@ namespace PdbDumper
             }
             DirectoryInfo root;
             switch (args[0].ToLower()) {
+                case "-cache":
+                    if (1 > args.Length) {
+                        Console.WriteLine("Executable file name is missing.");
+                        return false;
+                    }
+                    _targetExecutable = new FileInfo(args[1]);
+                    if (!_targetExecutable.Exists) {
+                        Console.WriteLine(
+                            $"Executable file {_targetExecutable.FullName} doesn't exist.");
+                        return false;
+                    }
+                    _verb = Verb.Cache;
+                    break;
                 case "-cached":
                     if (1 > args.Length) {
                         Console.WriteLine("Cache directory name is missing.");
@@ -282,8 +306,8 @@ namespace PdbDumper
         {
             Assembly thisAssembly = Assembly.GetExecutingAssembly();
             string assemblyName = thisAssembly.GetName().Name;
-            Console.WriteLine(
-                $"{assemblyName} <pdb file>");
+            Console.WriteLine($"{assemblyName} <pdb file>");
+            Console.WriteLine("\t | -cache <executable file>");
             Console.WriteLine("\t | -cached <directory>");
             Console.WriteLine("\t | -dir <directory>");
             Console.WriteLine("\t | -explain <executable file> <RVA>");
@@ -354,6 +378,7 @@ namespace PdbDumper
         private enum Verb
         {
             Undefined = 0,
+            Cache,
             DBIDump,
             Enumerate,
             Explain

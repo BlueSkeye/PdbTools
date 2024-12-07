@@ -6,27 +6,32 @@
     },
     "PdbReader DIR Debug|X64": {
       "commandName": "Executable",
-      "executablePath": "C:\\Users\\jp.forestier\\source\\repos\\PERSO\\PDB\\PdbReader\\bin\\x64\\Debug\\net6.0\\PdbDumper.exe",
+      "executablePath": "C:\\Users\\jp.forestier\\OneDrive - Constellation\\Perso\\source\\repos\\PERSO\\PDB\\PdbTools\\bin\\x64\\Debug\\net8.0\\PdbDumper.exe",
       "commandLineArgs": "-dir %windir%\\System32"
-    },
-    "PdbReader CACHE Debug|X64": {
-      "commandName": "Executable",
-      "executablePath": "C:\\Users\\jp.forestier\\source\\repos\\PERSO\\PDB\\PdbReader\\bin\\x64\\Debug\\net6.0\\PdbDumper.exe",
-      "commandLineArgs": "-cached %USERPROFILE%\\AppData\\Local\\Temp\\SymbolCache"
     },
     "PdbDownloader Debug|X64": {
       "commandName": "Executable",
-      "executablePath": "C:\\Users\\jp.forestier\\source\\repos\\PERSO\\PDB\\PdbReader\\bin\\x64\\Debug\\net6.0\\PdbDumper.exe",
+      "executablePath": "C:\\Users\\jp.forestier\\OneDrive - Constellation\\Perso\\source\\repos\\PERSO\\PDB\\PdbTools\\bin\\x64\\Debug\\net8.0\\PdbDumper.exe",
       "commandLineArgs": "-dir %windir%\\System32"
     },
     "PdbReader EXPLAIN Debug|X64": {
       "commandName": "Executable",
-      "executablePath": "C:\\Users\\jp.forestier\\source\\repos\\PERSO\\PDB\\PdbReader\\bin\\x64\\Debug\\net6.0\\PdbDumper.exe",
+      "executablePath": "C:\\Users\\jp.forestier\\OneDrive - Constellation\\Perso\\source\\repos\\PERSO\\PDB\\PdbTools\\bin\\x64\\Debug\\net8.0\\PdbDumper.exe",
       "commandLineArgs": "-explain c:\\windows\\system32\\ntdll.dll 0x00032AD0"
     },
     "PdbDumper DBIDUMP Debug|X64": {
       "commandName": "Project",
       "commandLineArgs": "-dbidump C:\\Users\\jp.forestier\\AppData\\Local\\Temp\\SymbolCache\\ntdll.pdb\\CDE75D039306834203EBD8D4E7D50369\\ntdll.pdb C:\\Temp\\Ntdll-DBI.bin"
+    },
+    "PdbDumper CACHED Debug|X64": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Users\\jp.forestier\\OneDrive - Constellation\\Perso\\source\\repos\\PERSO\\PDB\\PdbTools\\bin\\x64\\Debug\\net8.0\\PdbDumper.exe",
+      "commandLineArgs": "-cached %USERPROFILE%\\AppData\\Local\\Temp\\SymbolCache"
+    },
+    "PdbDumper CACHE NTDLL": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Users\\jp.forestier\\OneDrive - Constellation\\Perso\\source\\repos\\PERSO\\PDB\\PdbTools\\bin\\x64\\Debug\\net8.0\\PdbDumper.exe",
+      "commandLineArgs": "-cache c:\\windows\\system32\\ntdll.dll"
     }
   }
 }
