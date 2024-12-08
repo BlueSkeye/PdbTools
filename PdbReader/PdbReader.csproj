@@ -1,0 +1,97 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>x64</Platforms>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="BlockMapReader.cs" />
+    <Compile Include="DebugInformationStream.cs" />
+    <Compile Include="HashTable.cs" />
+    <Compile Include="HashTableReader.cs" />
+    <Compile Include="IdIndexedStream.cs" />
+    <Compile Include="IndexedStream.cs" />
+    <Compile Include="IPdb.cs" />
+    <Compile Include="IStreamGlobalOffset.cs" />
+    <Compile Include="Microsoft\CodeView\ArgumentList.cs" />
+    <Compile Include="Microsoft\CodeView\BaseClass.cs" />
+    <Compile Include="Microsoft\CodeView\BitField.cs" />
+    <Compile Include="Microsoft\CodeView\BuildInformation.cs" />
+    <Compile Include="Microsoft\CodeView\Class.cs" />
+    <Compile Include="Microsoft\CodeView\CodeViewArray.cs" />
+    <Compile Include="Microsoft\CodeView\CodeViewArray16Bits.cs" />
+    <Compile Include="Microsoft\CodeView\CV_access_e.cs" />
+    <Compile Include="Microsoft\CodeView\CV_call_e.cs" />
+    <Compile Include="Microsoft\CodeView\CV_fldattr_t.cs" />
+    <Compile Include="Microsoft\CodeView\CV_funcattr_t.cs" />
+    <Compile Include="Microsoft\CodeView\CV_methodprop_e.cs" />
+    <Compile Include="Microsoft\CodeView\CV_modifier_t.cs" />
+    <Compile Include="Microsoft\CodeView\CV_pmtype_e.cs" />
+    <Compile Include="Microsoft\CodeView\CV_prop_t.cs" />
+    <Compile Include="Microsoft\CodeView\CV_ptrmode_e.cs" />
+    <Compile Include="Microsoft\CodeView\CV_ptrtype_e.cs" />
+    <Compile Include="Microsoft\CodeView\CV_VTS_desc_e .cs" />
+    <Compile Include="Microsoft\CodeView\Enumerate.cs" />
+    <Compile Include="Microsoft\CodeView\Enumeration.cs" />
+    <Compile Include="Microsoft\CodeView\FieldList.cs" />
+    <Compile Include="Microsoft\CodeView\FunctionIdentifier.cs" />
+    <Compile Include="Microsoft\CodeView\INamedItem.cs" />
+    <Compile Include="Microsoft\CodeView\Index.cs" />
+    <Compile Include="Microsoft\CodeView\IPointer.cs" />
+    <Compile Include="Microsoft\CodeView\Label.cs" />
+    <Compile Include="Microsoft\CodeView\LEAF_ENUM_e.cs" />
+    <Compile Include="Microsoft\CodeView\Member.cs" />
+    <Compile Include="Microsoft\CodeView\MemberFunction.cs" />
+    <Compile Include="Microsoft\CodeView\MemberFunctionIdentifier.cs" />
+    <Compile Include="Microsoft\CodeView\Method.cs" />
+    <Compile Include="Microsoft\CodeView\MethodList.cs" />
+    <Compile Include="Microsoft\CodeView\Modifier.cs" />
+    <Compile Include="Microsoft\CodeView\NestedType.cs" />
+    <Compile Include="Microsoft\CodeView\OneMethod.cs" />
+    <Compile Include="Microsoft\CodeView\Pointer.cs" />
+    <Compile Include="Microsoft\CodeView\PointerBody.cs" />
+    <Compile Include="Microsoft\CodeView\PointerToMember.cs" />
+    <Compile Include="Microsoft\CodeView\Procedure.cs" />
+    <Compile Include="Microsoft\CodeView\SegmentBasedPointer.cs" />
+    <Compile Include="Microsoft\CodeView\StaticMember.cs" />
+    <Compile Include="Microsoft\CodeView\StringIdentifier.cs" />
+    <Compile Include="Microsoft\CodeView\SubstringList.cs" />
+    <Compile Include="Microsoft\CodeView\TypeBasedPointer.cs" />
+    <Compile Include="Microsoft\CodeView\TYPE_ENUM_e.cs" />
+    <Compile Include="Microsoft\CodeView\UDTModuleSourceLine.cs" />
+    <Compile Include="Microsoft\CodeView\UDTSourceLine.cs" />
+    <Compile Include="Microsoft\CodeView\Union.cs" />
+    <Compile Include="Microsoft\CodeView\Utils.cs" />
+    <Compile Include="Microsoft\CodeView\VirtualBaseClass.cs" />
+    <Compile Include="Microsoft\CodeView\VirtualFunctionTable.cs" />
+    <Compile Include="Microsoft\CodeView\VirtualFunctionTablePointer.cs" />
+    <Compile Include="Microsoft\CodeView\VirtualTableShape.cs" />
+    <Compile Include="Microsoft\CV_CPU_TYPE_e.cs" />
+    <Compile Include="Microsoft\CV_VTS_desc_e.cs" />
+    <Compile Include="Microsoft\IMAGE_SECTION_HEADER.cs" />
+    <Compile Include="Microsoft\RUNTIME_FUNCTION.cs" />
+    <Compile Include="Microsoft\UnwindData.cs" />
+    <Compile Include="ModuleInfoRecord.cs" />
+    <Compile Include="MSFSuperBlock.cs" />
+    <Compile Include="Pdb.cs" />
+    <Compile Include="PDBFormatException.cs" />
+    <Compile Include="PdbStreamHeader.cs" />
+    <Compile Include="PdbStreamReader.cs" />
+    <Compile Include="PdbStreamVersion.cs" />
+    <Compile Include="PublicSymbolsStreamHeader.cs" />
+    <Compile Include="PublicSymbolStream.cs" />
+    <Compile Include="SectionContributionEntry.cs" />
+    <Compile Include="SectionContributionSubstreamVersion.cs" />
+    <Compile Include="SectionMapEntry.cs" />
+    <Compile Include="StringPoolHeader.cs" />
+    <Compile Include="TypeIndexedStream.cs" />
+    <Compile Include="..\SharedSource\BugException.cs" />
+    <Compile Include="..\SharedSource\KnownDirectories.cs" />
+
+  </ItemGroup>
+
+</Project>

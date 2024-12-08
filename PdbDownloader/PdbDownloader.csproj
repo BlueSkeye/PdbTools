@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>x64</Platforms>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Microsoft\**" />
+    <EmbeddedResource Remove="Microsoft\**" />
+    <None Remove="Microsoft\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Downloader.cs" />
+    <Compile Include="IMAGE_BASE_RELOCATION.cs" />
+    <Compile Include="IMAGE_DATA_DIRECTORY.cs" />
+    <Compile Include="IMAGE_DEBUG_DIRECTORY.cs" />
+    <Compile Include="IMAGE_DIRECTORY_ENTRY_SECURITY.cs" />
+    <Compile Include="IMAGE_DOS_HEADER.cs" />
+    <Compile Include="IMAGE_FILE_HEADER.cs" />
+    <Compile Include="IMAGE_OPTIONAL_HEADER64.cs" />
+    <Compile Include="IMAGE_SECTION_HEADER.cs" />
+    <Compile Include="RVAReaderWriter.cs" />
+    <Compile Include="..\SharedSource\BugException.cs" />
+    <Compile Include="..\SharedSource\KnownDirectories.cs" />
+  </ItemGroup>
+
+</Project>

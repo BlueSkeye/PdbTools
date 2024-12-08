@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>x64</Platforms>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Microsoft\**" />
+    <EmbeddedResource Remove="Microsoft\**" />
+    <None Remove="Microsoft\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Dumper.cs" />
+    <Compile Include="..\SharedSource\KnownDirectories.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PdbDownloader\PdbDownloader.csproj">
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\PdbReader\PdbReader.csproj">
+      <CopyLocal>True</CopyLocal>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+</Project>

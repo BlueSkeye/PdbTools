@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ArchivedFile.cs" />
+    <Compile Include="BugException.cs" />
+    <Compile Include="ParsingException.cs" />
+    <Compile Include="ReaderProvider.cs" />
+    <Compile Include="Utils.cs" />
+  </ItemGroup>
+
+</Project>
