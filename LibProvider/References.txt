@@ -1,13 +1,18 @@
 ﻿Documentation
 =============
 
-ARCHive file format.
+ARCHive file format / Libray file format
 https://en.wikipedia.org/wiki/Ar_(Unix)
+https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#archive-library-file-format
+
+Microsoft description of the import library file format
+https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#import-library-format
 
 # Revision 11 20/06/2017
 https://download.microsoft.com/download/9/C/5/9C5B2167-8017-4BAE-9FDE-D599BAC8184A/pecoff.docx
 
 https://learn.microsoft.com/en-us/windows/win32/debug/pe-format
+https://stackoverflow.com/questions/44344675/format-of-microsoft-visual-studio-import-library
 https://www.codeproject.com/Articles/1253835/The-Structure-of-import-Library-File-lib
 https://fr.scribd.com/document/54172253/PE-COFF-Specification-v8-2
 https://blog.dev4cloud.net/talks-and-workshops/the-portable-executable-pe

@@ -52,7 +52,6 @@ namespace LibProviderTester
                     Console.WriteLine($"Unknown verb '{candidateVerb}'");
                     return false;
             }
-            return true;
         }
 
         private static void Usage()

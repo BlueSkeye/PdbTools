@@ -48,5 +48,35 @@ namespace LibProvider
             }
             return result;
         }
+
+        internal static int SafeCastToInt32(long value)
+        {
+            if (int.MinValue > value) {
+                throw new InvalidCastException($"{value} can't be casted to an int.");
+            }
+            if (int.MaxValue < value) {
+                throw new InvalidCastException($"{value} can't be casted to an int.");
+            }
+            return (int)value;
+        }
+
+        internal static uint SafeCastToUInt32(int value)
+        {
+            if (0 > value) {
+                throw new InvalidCastException($"{value} can't be casted to an int.");
+            }
+            return (uint)value;
+        }
+
+        internal static uint SafeCastToUInt32(long value)
+        {
+            if (0 > value) {
+                throw new InvalidCastException($"{value} can't be casted to an uint.");
+            }
+            if (uint.MaxValue < value) {
+                throw new InvalidCastException($"{value} can't be casted to an uint.");
+            }
+            return (uint)value;
+        }
     }
 }

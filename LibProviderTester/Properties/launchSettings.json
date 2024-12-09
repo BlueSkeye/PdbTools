@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    },
+    "LibProviderTester ATLS.LIB": {
+      "commandName": "Project",
+      "commandLineArgs": "-dump \"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.42.34433\\atlmfc\\lib\\x64\\ATLS.LIB\""
+    }
+  }
+}
