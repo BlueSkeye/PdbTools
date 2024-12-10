@@ -10,8 +10,12 @@
   <ItemGroup>
     <Compile Include="ArchivedFile.cs" />
     <Compile Include="BugException.cs" />
+    <Compile Include="COFF\IMAGE_FILE_HEADER.cs" />
+    <Compile Include="FirstLinkerMember.cs" />
+    <Compile Include="LongNameMember.cs" />
     <Compile Include="ParsingException.cs" />
     <Compile Include="ReaderProvider.cs" />
+    <Compile Include="SecondLinkerMember.cs" />
     <Compile Include="Utils.cs" />
   </ItemGroup>
 

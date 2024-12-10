@@ -17,13 +17,13 @@ namespace LibProvider
         private FileInfo? _backupFile;
         private int _backupFileLength = 0;
         private string _backupFileMappingName = Guid.NewGuid().ToString();
-        private ArchivedFile.FirstLinkerMember? _firstMember;
+        private FirstLinkerMember? _firstMember;
         private MemoryMappedViewStream _inStream;
-        private ArchivedFile.LongNameMember? _longNameMember;
+        private LongNameMember? _longNameMember;
         private MemoryMappedFile? _mappedBackupFile;
         private MemoryMappedViewStream? _mappedBackupFileView;
         private bool _readOnly = true;
-        private ArchivedFile.SecondLinkerMember? _secondMember;
+        private SecondLinkerMember? _secondMember;
 
         public ReaderProvider(FileInfo inputFile)
         {
@@ -43,7 +43,7 @@ namespace LibProvider
             _readOnly = false;
         }
 
-        internal ArchivedFile.FirstLinkerMember FirstMember
+        internal FirstLinkerMember FirstMember
         {
             get => Utils.AssertNotNull(_firstMember);
             private set {
@@ -55,7 +55,7 @@ namespace LibProvider
 
         public bool IsReadOnly => _readOnly;
 
-        internal ArchivedFile.SecondLinkerMember SecondMember
+        internal SecondLinkerMember SecondMember
         {
             get => Utils.AssertNotNull(_secondMember);
             private set {
@@ -87,15 +87,15 @@ namespace LibProvider
         /// <summary>Populate the <see cref="BuildFilesDictionary"/> dictionary.</summary>
         private void BuildFilesDictionary()
         {
-            _firstMember = new ArchivedFile.FirstLinkerMember(_inStream);
-            _secondMember = new ArchivedFile.SecondLinkerMember(_inStream);
+            _firstMember = new FirstLinkerMember(_inStream);
+            _secondMember = new SecondLinkerMember(_inStream);
             string? candidateHeaderName = ArchivedFile.Header.TryGetHeaderName(_inStream);
             if ((null != candidateHeaderName) && ("//" == candidateHeaderName)) {
-                _longNameMember = new ArchivedFile.LongNameMember(_inStream);
+                _longNameMember = new LongNameMember(_inStream);
             }
             while (_backupFileLength > _inStream.Position) {
                 long scannedFileStartOffset = _inStream.Position;
-                ArchivedFile scannedFile = new ArchivedFile(_inStream).SkipFile();
+                ArchivedFile scannedFile = new ArchivedFile(_inStream, _longNameMember).SkipFile();
                 _archivedFilesByIdentifier.Add(scannedFile.FileHeader.Identifier, scannedFile);
             }
             if (_inStream.Length != _inStream.Position) {

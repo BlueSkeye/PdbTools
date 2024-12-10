@@ -1,6 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Collections.ObjectModel;
-using System.IO.MemoryMappedFiles;
+﻿using System.IO.MemoryMappedFiles;
 using System.Text;
 
 namespace LibProvider
@@ -11,11 +9,11 @@ namespace LibProvider
         private Header _header; 
         private readonly uint _startOffset;
 
-        internal ArchivedFile(MemoryMappedViewStream from)
+        internal ArchivedFile(MemoryMappedViewStream from, LongNameMember? nameCatalog)
         {
             _from = from;
             _startOffset = Utils.SafeCastToUInt32(from.Position);
-            _header = new Header(from);
+            _header = new Header(from, nameCatalog);
         }
 
         internal long ExpectedNextFileOffset
@@ -27,93 +25,6 @@ namespace LibProvider
         }
 
         internal Header FileHeader => _header;
-        
-        private static int ReadAndParseInt32(MemoryMappedViewStream from, int inputLength)
-        {
-            string parsedString = ASCIIEncoding.ASCII.GetString(
-                Utils.AllocateBufferAndAssertRead(from, inputLength)).Trim();
-            return (string.Empty == parsedString) ? 0 : int.Parse(parsedString);
-        }
-
-        private static uint ReadAndParseOctalUInt32(MemoryMappedViewStream from, int inputLength)
-        {
-            string parsedString = ASCIIEncoding.ASCII.GetString(
-                Utils.AllocateBufferAndAssertRead(from, inputLength)).Trim();
-            return (string.Empty == parsedString) ? 0 : Utils.ParseOctalNumber(parsedString);
-        }
-
-        private static uint ReadAndParseUInt32(MemoryMappedViewStream from, int inputLength)
-        {
-            string parsedString = ASCIIEncoding.ASCII.GetString(
-                Utils.AllocateBufferAndAssertRead(from, inputLength)).Trim();
-            return (string.Empty == parsedString) ? 0 : uint.Parse(parsedString);
-        }
-
-        private static uint ReadBigEndianUInt32(MemoryMappedViewStream from)
-        {
-            uint result = 0;
-            for(int index = 0; sizeof(uint) > index; index++) {
-                result <<= 8;
-                int inputByte = from.ReadByte();
-                if (-1 == inputByte) {
-                    throw new ParsingException("EOF reached while reading a big endian uint.");
-                }
-                if (0 > inputByte) {
-                    throw new BugException("Unexpected situation.");
-                }
-                result += (byte)inputByte;
-            }
-            return result;
-        }
-
-        private static ushort ReadBigEndianUShort(MemoryMappedViewStream from)
-        {
-            ushort result = 0;
-            for(int index = 0; sizeof(ushort) > index; index++) {
-                result <<= 8;
-                int inputByte = from.ReadByte();
-                if (-1 == inputByte) {
-                    throw new ParsingException("EOF reached while reading a big endian uint.");
-                }
-                if (0 > inputByte) {
-                    throw new BugException("Unexpected situation.");
-                }
-                result += (byte)inputByte;
-            }
-            return result;
-        }
-
-        private static uint ReadLittleEndianUInt32(MemoryMappedViewStream from)
-        {
-            uint result = 0;
-            for(int index = 0; sizeof(uint) > index; index++) {
-                int inputByte = from.ReadByte();
-                if (-1 == inputByte) {
-                    throw new ParsingException("EOF reached while reading a big endian uint.");
-                }
-                if (0 > inputByte) {
-                    throw new BugException("Unexpected situation.");
-                }
-                result += (uint)((byte)inputByte << (8 * index));
-            }
-            return result;
-        }
-
-        private static ushort ReadLittleEndianUShort(MemoryMappedViewStream from)
-        {
-            ushort result = 0;
-            for(int index = 0; sizeof(ushort) > index; index++) {
-                int inputByte = from.ReadByte();
-                if (-1 == inputByte) {
-                    throw new ParsingException("EOF reached while reading a big endian uint.");
-                }
-                if (0 > inputByte) {
-                    throw new BugException("Unexpected situation.");
-                }
-                result += (ushort)((byte)inputByte << (8 * index));
-            }
-            return result;
-        }
 
         /// <summary>Set memory mapped file stream position just after the file.</summary>
         internal ArchivedFile SkipFile()
@@ -125,76 +36,50 @@ namespace LibProvider
             return this;
         }
 
-        /// <summary>See https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#first-linker-member</summary>
-        internal class FirstLinkerMember : ArchivedFile
-        {
-            private long _dataStartOffset;
-
-            internal FirstLinkerMember(MemoryMappedViewStream from)
-                : base(from)
-            {
-                _dataStartOffset = from.Position;
-                uint membersCount = ReadBigEndianUInt32(from);
-                uint[] offsets = new uint[membersCount];
-                for(int index = 0; membersCount > index; index++) {
-                    offsets[index] = ReadBigEndianUInt32(from);
-                }
-                Offsets = offsets.ToImmutableArray();
-                StringBuilder builder = new StringBuilder();
-                string[] strings = new string[membersCount];
-                for (int index = 0; membersCount > index; index++) {
-                    builder.Clear();
-                    while (true) {
-                        int scannedByte = from.ReadByte();
-                        if (0 > scannedByte) {
-                            throw new ParsingException("EOF reached while reading a string.");
-                        }
-                        if (0 == scannedByte) {
-                            break;
-                        }
-                        builder.Append((char)scannedByte);
-                    }
-                    strings[index] = builder.ToString();
-                }
-                Strings = strings.ToImmutableArray();
-                if (0 != (from.Position % 2)) {
-                    if (-1 == from.ReadByte()) {
-                        throw new ParsingException("Missing padding byte.");
-                    }
-                }
-                if (base.ExpectedNextFileOffset != from.Position) {
-                    throw new ParsingException("Offset mismatch.");
-                }
-                return;
-            }
-
-            internal ImmutableArray<uint> Offsets { get; private set; }
-
-            internal ImmutableArray<string> Strings { get; private set; }
-        }
 
         /// <summary></summary>
         /// <remarks>See https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#archive-member-headers</remarks>
         internal struct Header
         {
             internal const int IdentifierLength = 16;
+            private const int FileModeLength = 8;
+            private const int FileSizeLength = 10;
+            private const int ModificationTimestampStringLength = 12;
+            private const int OwnerAndGroupIdsStringLength = 6;
             internal static readonly uint InFileHeaderSize = 60;
 
-            internal Header(MemoryMappedViewStream from)
+            internal Header(MemoryMappedViewStream from, LongNameMember? nameCatalog)
             {
-                const int FileModeLength = 8;
-                const int FileSizeLength = 10;
-                const int ModificationTimestampStringLength = 12;
-                const int OwnerAndGroupIdsStringLength = 6;
-                string parsedString;
-
                 Identifier = ASCIIEncoding.ASCII.GetString(
                     Utils.AllocateBufferAndAssertRead(from, IdentifierLength)).Trim();
-                ModificationTimestamp = ReadAndParseInt32(from, ModificationTimestampStringLength);
-                OwnerId = ReadAndParseInt32(from, OwnerAndGroupIdsStringLength);
-                GroupId = ReadAndParseInt32(from, OwnerAndGroupIdsStringLength);
-                FileMode = ReadAndParseOctalUInt32(from, FileModeLength);
-                FileSize = ReadAndParseUInt32(from, FileSizeLength);
+                if (Identifier.StartsWith("/")) {
+                    switch (Identifier) {
+                        case "/":
+                            break;
+                        case "//":
+                            break;
+                        default:
+                            string idNumberString = Identifier.Substring(1);
+                            if (null == nameCatalog) {
+                                throw new BugException(
+                                    "No name catalog provided while encountering a numbered id.");
+                            }
+                            uint idNumber = uint.Parse(idNumberString);
+                            Identifier = nameCatalog.GetNameByOffset(idNumber);
+                            break;
+                    }
+                }
+                else {
+                    if (!Identifier.EndsWith("/")) {
+                        throw new ParsingException($"Trailing slash missing in archived file {Identifier}");
+                    }
+                    Identifier = Identifier.Substring(0, Identifier.Length - 1);
+                }
+                ModificationTimestamp = Utils.ReadAndParseInt32(from, ModificationTimestampStringLength);
+                OwnerId = Utils.ReadAndParseInt32(from, OwnerAndGroupIdsStringLength);
+                GroupId = Utils.ReadAndParseInt32(from, OwnerAndGroupIdsStringLength);
+                FileMode = Utils.ReadAndParseOctalUInt32(from, FileModeLength);
+                FileSize = Utils.ReadAndParseUInt32(from, FileSizeLength);
                 if ((0x60 != from.ReadByte()) || (0x0A != from.ReadByte())) {
                     throw new ParsingException("Invalid header ending characters.");
                 }
@@ -234,104 +119,6 @@ namespace LibProvider
                 }
                 finally { from.Position = startOffset; }
             }
-        }
-
-        /// <summary>See https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#longnames-member</summary>
-        internal class LongNameMember : ArchivedFile
-        {
-            private long _dataStartOffset;
-
-            internal LongNameMember(MemoryMappedViewStream from)
-                : base(from)
-            {
-                StringBuilder builder = new StringBuilder();
-                List<string> symbolNames = new List<string>();
-                while (base.ExpectedNextFileOffset > from.Position) {
-                    builder.Clear();
-                    while (true) {
-                        int scannedByte = from.ReadByte();
-                        if (0 > scannedByte) {
-                            throw new ParsingException("EOF reached while reading a string.");
-                        }
-                        if (0 == scannedByte) {
-                            break;
-                        }
-                        builder.Append((char)scannedByte);
-                    }
-                    string symbolName = builder.ToString();
-                    if (string.Empty != symbolName) {
-                        symbolNames.Add(builder.ToString());
-                    }
-                }
-                MemberNames = symbolNames.ToImmutableArray();
-                if (0 != (from.Position % 2)) {
-                    if (-1 == from.ReadByte()) {
-                        throw new ParsingException("Missing padding byte.");
-                    }
-                }
-                if (base.ExpectedNextFileOffset != from.Position) {
-                    throw new ParsingException("Offset mismatch.");
-                }
-                return;
-            }
-
-            internal ImmutableArray<string> MemberNames { get; private set; }
-        }
-
-        /// <summary>See https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#second-linker-member</summary>
-        internal class SecondLinkerMember : ArchivedFile
-        {
-            private long _dataStartOffset;
-
-            internal SecondLinkerMember(MemoryMappedViewStream from)
-                : base(from)
-            {
-                _dataStartOffset = from.Position;
-                uint membersCount = ReadLittleEndianUInt32(from);
-                uint[] memberOffsets = new uint[membersCount];
-                for(int index = 0; membersCount > index; index++) {
-                    memberOffsets[index] = ReadLittleEndianUInt32(from);
-                }
-                MemberOffsets = memberOffsets.ToImmutableArray();
-                uint symbolsCount = ReadLittleEndianUInt32(from);
-                ushort[] symbolIndices = new ushort[symbolsCount];
-                for(int index = 0; symbolsCount > index; index++) {
-                    symbolIndices[index] = ReadLittleEndianUShort(from);
-                }
-                SymbolIndices = symbolIndices.ToImmutableArray();
-                StringBuilder builder = new StringBuilder();
-                string[] symbolNames = new string[symbolsCount];
-                for (int index = 0; symbolsCount > index; index++) {
-                    builder.Clear();
-                    while (true) {
-                        int scannedByte = from.ReadByte();
-                        if (0 > scannedByte) {
-                            throw new ParsingException("EOF reached while reading a string.");
-                        }
-                        if (0 == scannedByte) {
-                            break;
-                        }
-                        builder.Append((char)scannedByte);
-                    }
-                    symbolNames[index] = builder.ToString();
-                }
-                SymbolNames = symbolNames.ToImmutableArray();
-                if (0 != (from.Position % 2)) {
-                    if (-1 == from.ReadByte()) {
-                        throw new ParsingException("Missing padding byte.");
-                    }
-                }
-                if (base.ExpectedNextFileOffset != from.Position) {
-                    throw new ParsingException("Offset mismatch.");
-                }
-                return;
-            }
-
-            internal ImmutableArray<uint> MemberOffsets { get; private set; }
-
-            internal ImmutableArray<ushort> SymbolIndices { get; private set; }
-
-            internal ImmutableArray<string> SymbolNames { get; private set; }
         }
     }
 }
