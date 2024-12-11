@@ -106,13 +106,29 @@ namespace LibProvider
             return result;
         }
 
+        internal static ulong ReadLittleEndianUInt64(MemoryMappedViewStream from)
+        {
+            ulong result = 0;
+            for(int index = 0; sizeof(ulong) > index; index++) {
+                int inputByte = from.ReadByte();
+                if (-1 == inputByte) {
+                    throw new ParsingException("EOF reached while reading a little endian ulong.");
+                }
+                if (0 > inputByte) {
+                    throw new BugException("Unexpected situation.");
+                }
+                result += (((ulong)(byte)inputByte) << (8 * index));
+            }
+            return result;
+        }
+
         internal static uint ReadLittleEndianUInt32(MemoryMappedViewStream from)
         {
             uint result = 0;
             for(int index = 0; sizeof(uint) > index; index++) {
                 int inputByte = from.ReadByte();
                 if (-1 == inputByte) {
-                    throw new ParsingException("EOF reached while reading a big endian uint.");
+                    throw new ParsingException("EOF reached while reading a little endian uint.");
                 }
                 if (0 > inputByte) {
                     throw new BugException("Unexpected situation.");
@@ -128,7 +144,7 @@ namespace LibProvider
             for(int index = 0; sizeof(ushort) > index; index++) {
                 int inputByte = from.ReadByte();
                 if (-1 == inputByte) {
-                    throw new ParsingException("EOF reached while reading a big endian uint.");
+                    throw new ParsingException("EOF reached while reading a little endian uint.");
                 }
                 if (0 > inputByte) {
                     throw new BugException("Unexpected situation.");
@@ -143,6 +159,14 @@ namespace LibProvider
             if (int.MinValue > value) {
                 throw new InvalidCastException($"{value} can't be casted to an int.");
             }
+            if (int.MaxValue < value) {
+                throw new InvalidCastException($"{value} can't be casted to an int.");
+            }
+            return (int)value;
+        }
+
+        internal static int SafeCastToInt32(uint value)
+        {
             if (int.MaxValue < value) {
                 throw new InvalidCastException($"{value} can't be casted to an int.");
             }

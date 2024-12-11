@@ -27,13 +27,12 @@ namespace LibProvider
         internal Header FileHeader => _header;
 
         /// <summary>Set memory mapped file stream position just after the file.</summary>
-        internal ArchivedFile SkipFile()
+        protected void _SkipFile()
         {
             _from.Position = _startOffset + Header.InFileHeaderSize + _header.FileSize;
             if (0 != (_header.FileSize % 2)) {
                 _from.Position += 1;
             }
-            return this;
         }
 
 

@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.IO.MemoryMappedFiles;
+using System.Runtime.InteropServices;
 
 namespace LibProvider.COFF
 {
@@ -19,5 +20,16 @@ namespace LibProvider.COFF
         internal ushort SizeOfOptionalHeader;
         [FieldOffset(0x12)]
         internal ushort Characteristics;
+
+        internal IMAGE_FILE_HEADER(MemoryMappedViewStream from)
+        {
+            Machine = Utils.ReadLittleEndianUShort(from);
+            NumberOfSections = Utils.ReadLittleEndianUShort(from);
+            TimeDateStamp = Utils.ReadLittleEndianUInt32(from);
+            PointerToSymbolTable = Utils.ReadLittleEndianUInt32(from);
+            NumberOfSymbols = Utils.ReadLittleEndianUInt32(from);
+            SizeOfOptionalHeader = Utils.ReadLittleEndianUShort(from);
+            Characteristics = Utils.ReadLittleEndianUShort(from);
+        }
     }
 }

@@ -13,7 +13,8 @@ namespace LibProvider
         private static readonly byte[] LibHeaderTag = {
             (byte)'!', (byte)'<', (byte)'a', (byte)'r', (byte)'c', (byte)'h', (byte)'>', (byte)0x0A
         };
-        private Dictionary<string, ArchivedFile> _archivedFilesByIdentifier = new Dictionary<string, ArchivedFile>();
+        private Dictionary<string, List<ObjectFileMember>> _archivedFilesByIdentifier =
+            new Dictionary<string, List<ObjectFileMember>>();
         private FileInfo? _backupFile;
         private int _backupFileLength = 0;
         private string _backupFileMappingName = Guid.NewGuid().ToString();
@@ -95,8 +96,13 @@ namespace LibProvider
             }
             while (_backupFileLength > _inStream.Position) {
                 long scannedFileStartOffset = _inStream.Position;
-                ArchivedFile scannedFile = new ArchivedFile(_inStream, _longNameMember).SkipFile();
-                _archivedFilesByIdentifier.Add(scannedFile.FileHeader.Identifier, scannedFile);
+                ObjectFileMember scannedFile = new ObjectFileMember(_inStream, _longNameMember).SkipFile();
+                List<ObjectFileMember>? homonyms;
+                if (!_archivedFilesByIdentifier.TryGetValue(scannedFile.FileHeader.Identifier, out homonyms)) {
+                    homonyms = new List<ObjectFileMember>();
+                    _archivedFilesByIdentifier.Add(scannedFile.FileHeader.Identifier, homonyms);
+                }
+                homonyms.Add(scannedFile);
             }
             if (_inStream.Length != _inStream.Position) {
                 throw new ParsingException($"Archive length mismatch. Length {_inStream.Length}/Position{_inStream.Position}");
