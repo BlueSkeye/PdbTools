@@ -9,8 +9,8 @@ namespace LibProvider
     {
         private long _dataStartOffset;
 
-        internal SecondLinkerMember(MemoryMappedViewStream from)
-            : base(from, null)
+        internal SecondLinkerMember(MemoryMappedViewStream from, ReaderProvider.DebugFlags debugFlags)
+            : base(from, null, debugFlags)
         {
             _dataStartOffset = from.Position;
             uint membersCount = Utils.ReadLittleEndianUInt32(from);
@@ -52,6 +52,8 @@ namespace LibProvider
             }
             return;
         }
+
+        internal override string ArchivedFileTypeName => "second linker member";
 
         internal ImmutableArray<uint> MemberOffsets { get; private set; }
 

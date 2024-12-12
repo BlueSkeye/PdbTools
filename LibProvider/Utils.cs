@@ -31,6 +31,17 @@ namespace LibProvider
             return candidate;
         }
 
+        internal static void DebugTrace(string message)
+        {
+            Console.WriteLine(message);
+        }
+
+        internal static bool IsDebugFlagEnabled(ReaderProvider.DebugFlags wantedFlag,
+            ReaderProvider.DebugFlags scannedFlag)
+        {
+            return (0 != (wantedFlag & scannedFlag));
+        }
+
         internal static uint ParseOctalNumber(string candidate)
         {
             uint result = 0;
@@ -106,6 +117,18 @@ namespace LibProvider
             return result;
         }
 
+        internal static byte ReadByte(MemoryMappedViewStream from)
+        {
+            int inputByte = from.ReadByte();
+            if (0 > inputByte) {
+                throw new ParsingException("EOF encountered while trying to read a byte.");
+            }
+            if (byte.MaxValue < inputByte) {
+                throw new BugException("Unexpected value encounetered while reading a byte.");
+            }
+            return (byte)inputByte;
+        }
+
         internal static ulong ReadLittleEndianUInt64(MemoryMappedViewStream from)
         {
             ulong result = 0;
@@ -152,6 +175,21 @@ namespace LibProvider
                 result += (ushort)((byte)inputByte << (8 * index));
             }
             return result;
+        }
+
+        internal static string ReadNullTerminatedASCIIString(MemoryMappedViewStream from)
+        {
+            StringBuilder builder = new StringBuilder();
+            while (true) {
+                int inputByte = from.ReadByte();
+                if (-1 == inputByte) {
+                    throw new ParsingException("Unexpected EOF encountered while readind string.");
+                }
+                if (0 == inputByte) {
+                    return builder.ToString();
+                }
+                builder.Append((char)inputByte);
+            }
         }
 
         internal static int SafeCastToInt32(long value)

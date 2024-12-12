@@ -1,4 +1,5 @@
-﻿using System.IO.MemoryMappedFiles;
+﻿using System.Diagnostics;
+using System.IO.MemoryMappedFiles;
 
 namespace LibProvider
 {
@@ -13,11 +14,12 @@ namespace LibProvider
         private static readonly byte[] LibHeaderTag = {
             (byte)'!', (byte)'<', (byte)'a', (byte)'r', (byte)'c', (byte)'h', (byte)'>', (byte)0x0A
         };
-        private Dictionary<string, List<ObjectFileMember>> _archivedFilesByIdentifier =
-            new Dictionary<string, List<ObjectFileMember>>();
+        private Dictionary<string, List<ImportFileMember>> _archivedFilesByIdentifier =
+            new Dictionary<string, List<ImportFileMember>>();
         private FileInfo? _backupFile;
         private int _backupFileLength = 0;
         private string _backupFileMappingName = Guid.NewGuid().ToString();
+        private DebugFlags _debugFlags;
         private FirstLinkerMember? _firstMember;
         private MemoryMappedViewStream _inStream;
         private LongNameMember? _longNameMember;
@@ -26,8 +28,9 @@ namespace LibProvider
         private bool _readOnly = true;
         private SecondLinkerMember? _secondMember;
 
-        public ReaderProvider(FileInfo inputFile)
+        public ReaderProvider(FileInfo inputFile, DebugFlags debugFlags = DebugFlags.NONE)
         {
+            _debugFlags = debugFlags;
             _backupFile = Utils.AssertArgumentNotNull(inputFile, nameof(inputFile));
             _backupFileLength = Utils.SafeCastToInt32(_backupFile.Length);
             _mappedBackupFile = MemoryMappedFile.CreateFromFile(_backupFile.FullName, FileMode.Open,
@@ -88,18 +91,18 @@ namespace LibProvider
         /// <summary>Populate the <see cref="BuildFilesDictionary"/> dictionary.</summary>
         private void BuildFilesDictionary()
         {
-            _firstMember = new FirstLinkerMember(_inStream);
-            _secondMember = new SecondLinkerMember(_inStream);
+            _firstMember = new FirstLinkerMember(_inStream, DebugFlags.TraceEmbeddedFileOffset);
+            _secondMember = new SecondLinkerMember(_inStream, DebugFlags.TraceEmbeddedFileOffset);
             string? candidateHeaderName = ArchivedFile.Header.TryGetHeaderName(_inStream);
             if ((null != candidateHeaderName) && ("//" == candidateHeaderName)) {
-                _longNameMember = new LongNameMember(_inStream);
+                _longNameMember = new LongNameMember(_inStream, DebugFlags.TraceEmbeddedFileOffset);
             }
             while (_backupFileLength > _inStream.Position) {
                 long scannedFileStartOffset = _inStream.Position;
-                ObjectFileMember scannedFile = new ObjectFileMember(_inStream, _longNameMember).SkipFile();
-                List<ObjectFileMember>? homonyms;
+                ImportFileMember scannedFile = ImportFileMember.Create(_inStream, _longNameMember, _debugFlags);
+                List<ImportFileMember>? homonyms;
                 if (!_archivedFilesByIdentifier.TryGetValue(scannedFile.FileHeader.Identifier, out homonyms)) {
-                    homonyms = new List<ObjectFileMember>();
+                    homonyms = new List<ImportFileMember>();
                     _archivedFilesByIdentifier.Add(scannedFile.FileHeader.Identifier, homonyms);
                 }
                 homonyms.Add(scannedFile);
@@ -108,6 +111,19 @@ namespace LibProvider
                 throw new ParsingException($"Archive length mismatch. Length {_inStream.Length}/Position{_inStream.Position}");
             }
             return;
+        }
+
+        private bool IsDebugFlagEnabled(DebugFlags scannedFlag)
+        {
+            return (0 != (_debugFlags & scannedFlag));
+        }
+
+        [Flags()]
+        public enum DebugFlags : ulong
+        {
+            NONE = 0x0000000000000000,
+            TraceEmbeddedFileOffset = 0x0000000000000001,
+            TraceObjectFileMemberSectionsOffset = 0x0000000000000002,
         }
     }
 }

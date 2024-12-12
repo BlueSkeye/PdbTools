@@ -9,7 +9,10 @@ namespace LibProviderTester
 
         private static int DumpLibrary()
         {
-            ReaderProvider provider = new ReaderProvider(_libraryFile);
+            ReaderProvider provider = new ReaderProvider(_libraryFile,
+                  ReaderProvider.DebugFlags.TraceEmbeddedFileOffset
+                | ReaderProvider.DebugFlags.TraceObjectFileMemberSectionsOffset
+                );
             return 0;
         }
         

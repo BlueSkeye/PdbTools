@@ -3,17 +3,26 @@ using System.Text;
 
 namespace LibProvider
 {
-    internal class ArchivedFile
+    internal abstract class ArchivedFile
     {
+        protected readonly ReaderProvider.DebugFlags _debugFlags;
         private readonly MemoryMappedViewStream _from;
         private Header _header; 
-        private readonly uint _startOffset;
+        protected readonly uint _startOffset;
 
-        internal ArchivedFile(MemoryMappedViewStream from, LongNameMember? nameCatalog)
+        internal ArchivedFile(MemoryMappedViewStream from, LongNameMember? nameCatalog,
+            ReaderProvider.DebugFlags debugFlags)
         {
+            if (0x00023934 == from.Position) {
+                int i = 1;
+            }
             _from = from;
             _startOffset = Utils.SafeCastToUInt32(from.Position);
             _header = new Header(from, nameCatalog);
+            _debugFlags = debugFlags;
+            if (Utils.IsDebugFlagEnabled(ReaderProvider.DebugFlags.TraceEmbeddedFileOffset, _debugFlags)) {
+                Utils.DebugTrace($"Embedded '{ArchivedFileTypeName}' found @0x{_startOffset:X8}");
+            }
         }
 
         internal long ExpectedNextFileOffset
@@ -24,17 +33,9 @@ namespace LibProvider
             }
         }
 
+        internal abstract string ArchivedFileTypeName { get; }
+
         internal Header FileHeader => _header;
-
-        /// <summary>Set memory mapped file stream position just after the file.</summary>
-        protected void _SkipFile()
-        {
-            _from.Position = _startOffset + Header.InFileHeaderSize + _header.FileSize;
-            if (0 != (_header.FileSize % 2)) {
-                _from.Position += 1;
-            }
-        }
-
 
         /// <summary></summary>
         /// <remarks>See https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#archive-member-headers</remarks>

@@ -7,8 +7,8 @@ namespace LibProvider
     /// <summary>See https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#longnames-member</summary>
     internal class LongNameMember : ArchivedFile
     {
-        internal LongNameMember(MemoryMappedViewStream from)
-            : base(from, null)
+        internal LongNameMember(MemoryMappedViewStream from, ReaderProvider.DebugFlags debugFlags)
+            : base(from, null, debugFlags)
         {
             long fileStartOffset = from.Position;
             StringBuilder builder = new StringBuilder();
@@ -55,6 +55,8 @@ namespace LibProvider
             }
             throw new ParsingException($"Can't find name offset {offset} in long names catalog.");
         }
+
+        internal override string ArchivedFileTypeName => "long name member";
 
         internal ImmutableArray<uint> NamesOffset { get; private set; }
 
