@@ -28,15 +28,17 @@ namespace LibProvider.COFF
         /// is zero.</summary>
         // [FieldOffset(0x10)]
         internal uint sizeOfRawData;
-        /// <summary>A file pointer to the first page within the COFF file.
-        /// This value must be a multiple of the FileAlignment member of the
-        /// IMAGE_OPTIONAL_HEADER structure. If a section contains only
+        /// <summary>A file pointer to the first page within the COFF file. This value must be a multiple
+        /// of the FileAlignment member of the IMAGE_OPTIONAL_HEADER structure. If a section contains only
         /// uninitialized data, set this member is zero.</summary>
+        /// <remarks>Relative to <see cref="ImportLongFileMember._fileContentStartPosition"/></remarks>
         // [FieldOffset(0x14)]
         internal uint pointerToRawData;
         /// <summary>A file pointer to the beginning of the relocation entries
         /// for the section. If there are no relocations, this value is zero.
         /// </summary>
+        /// <remarks>Relative to <see cref="ImportLongFileMember._fileContentStartPosition"/>. Members are
+        /// <see cref="IMAGE_RELOCATION_ENTRY"/></remarks>
         // [FieldOffset(0x18)]
         internal uint pointerToRelocations;
         /// <summary>A file pointer to the beginning of the line-number entries
@@ -55,7 +57,7 @@ namespace LibProvider.COFF
         // [FieldOffset(0x24)]
         internal Flags characteristics;
 
-        internal IMAGE_SECTION_HEADER(MemoryMappedViewStream from)
+        internal IMAGE_SECTION_HEADER(MemoryMappedViewStream from, ReaderProvider.DebugFlags traceFlags)
         {
             FullName = ASCIIEncoding.ASCII.GetString(Utils.AllocateBufferAndAssertRead(from, 8))
                 .Replace('\0', ' ')
@@ -87,6 +89,16 @@ namespace LibProvider.COFF
         internal string Suffix { get; private set; }
 
         internal bool IsExecutable => (0 != (characteristics & Flags.Executable));
+
+        internal void Dump(string prefix)
+        {
+            Utils.DebugTrace($"{prefix}Name : {FullName}");
+            Utils.DebugTrace($"{prefix}At 0x{virtualAddress:X8} size {virtualSize}");
+            Utils.DebugTrace($"{prefix}Raw data at 0x{pointerToRawData:X8} size {sizeOfRawData}");
+            Utils.DebugTrace($"{prefix}Relocations at 0x{pointerToRelocations:X8} entries {numberOfRelocations}");
+            Utils.DebugTrace($"{prefix}Line numbers at 0x{pointerToLineNumbers} entries {numberOfLineNumbers}");
+            Utils.DebugTrace($"{prefix}Characteristics {characteristics}");
+        }
 
         [Flags()]
         internal enum Flags : uint

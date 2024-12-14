@@ -36,6 +36,42 @@ namespace LibProvider
             Console.WriteLine(message);
         }
 
+        internal static void Dump(string indentation, string title, ICollection<byte> data)
+        {
+            const int ItemsPerLine = 16;
+            const int MiddleLineIndex = ItemsPerLine / 2;
+            DebugTrace($"{indentation}{title}");
+            StringBuilder builder = new StringBuilder();
+            int index = 0;
+            bool startLine = true;
+            bool atMidline = false;
+            while (index < data.Count) {
+                if (startLine) {
+                    if (0 != builder.Length) {
+                        DebugTrace(builder.ToString());
+                        builder.Clear();
+                    }
+                    builder.Append($"{indentation}{index:X8} ");
+                    startLine = false;
+                }
+                if (atMidline) {
+                    builder.Append("- ");
+                    atMidline = false;
+                }
+                builder.Append($"{((byte)data.ElementAt(index)):X2} ");
+                index++;
+                if (0 == (index % ItemsPerLine)) {
+                    startLine = true;
+                }
+                else if (0 == (index % MiddleLineIndex)) {
+                    atMidline = true;
+                }
+            }
+            if (0 != builder.Length) {
+                DebugTrace(builder.ToString());
+            }
+        }
+
         internal static bool IsDebugFlagEnabled(ReaderProvider.DebugFlags wantedFlag,
             ReaderProvider.DebugFlags scannedFlag)
         {
@@ -127,6 +163,11 @@ namespace LibProvider
                 throw new BugException("Unexpected value encounetered while reading a byte.");
             }
             return (byte)inputByte;
+        }
+
+        internal static short ReadLittleEndianShort(MemoryMappedViewStream from)
+        {
+            return (short)ReadLittleEndianUShort(from);
         }
 
         internal static ulong ReadLittleEndianUInt64(MemoryMappedViewStream from)

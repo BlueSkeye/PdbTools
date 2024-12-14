@@ -10,7 +10,7 @@
   <ItemGroup>
     <Compile Include="ArchivedFile.cs" />
     <Compile Include="BugException.cs" />
-    <Compile Include="COFF\IMAGE_FILE_HEADER.cs" />
+    <Compile Include="COFF\IMAGE_LONG_IMPORT_HEADER.cs" />
     <Compile Include="COFF\IMAGE_SHORT_IMPORT_HEADER.cs" />
     <Compile Include="COFF\IMAGE_OPTIONAL_HEADER64.cs" />
     <Compile Include="COFF\IMAGE_RELOCATION_ENTRY.cs" />

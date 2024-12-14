@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 namespace LibProvider.COFF
 {
     [StructLayout(LayoutKind.Explicit)]
-    internal class IMAGE_FILE_HEADER
+    internal class IMAGE_LONG_IMPORT_HEADER
     {
         [FieldOffset(0x00)]
         internal ushort Machine;
@@ -21,7 +21,7 @@ namespace LibProvider.COFF
         [FieldOffset(0x12)]
         internal ushort Characteristics;
 
-        internal IMAGE_FILE_HEADER(MemoryMappedViewStream from)
+        internal IMAGE_LONG_IMPORT_HEADER(MemoryMappedViewStream from)
         {
             Machine = Utils.ReadLittleEndianUShort(from);
             NumberOfSections = Utils.ReadLittleEndianUShort(from);

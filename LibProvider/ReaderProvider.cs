@@ -91,11 +91,11 @@ namespace LibProvider
         /// <summary>Populate the <see cref="BuildFilesDictionary"/> dictionary.</summary>
         private void BuildFilesDictionary()
         {
-            _firstMember = new FirstLinkerMember(_inStream, DebugFlags.TraceEmbeddedFileOffset);
-            _secondMember = new SecondLinkerMember(_inStream, DebugFlags.TraceEmbeddedFileOffset);
+            _firstMember = new FirstLinkerMember(_inStream, DebugFlags.TraceArchiveFileMembers);
+            _secondMember = new SecondLinkerMember(_inStream, DebugFlags.TraceArchiveFileMembers);
             string? candidateHeaderName = ArchivedFile.Header.TryGetHeaderName(_inStream);
             if ((null != candidateHeaderName) && ("//" == candidateHeaderName)) {
-                _longNameMember = new LongNameMember(_inStream, DebugFlags.TraceEmbeddedFileOffset);
+                _longNameMember = new LongNameMember(_inStream, DebugFlags.TraceArchiveFileMembers);
             }
             while (_backupFileLength > _inStream.Position) {
                 long scannedFileStartOffset = _inStream.Position;
@@ -122,8 +122,12 @@ namespace LibProvider
         public enum DebugFlags : ulong
         {
             NONE = 0x0000000000000000,
-            TraceEmbeddedFileOffset = 0x0000000000000001,
-            TraceObjectFileMemberSectionsOffset = 0x0000000000000002,
+            TraceArchiveFileMembers = 0x0000000000000001,
+            TraceArchiveFileMemberSectionsOffset = 0x0000000000000002,
+            DumpSectionRawData = 0x0000000000000004,
+            DumpRelocationData = 0x0000000000000008,
+            TraceArchiveFileMemberSectionsData = 0x0000000000000010,
+            TraceSymbols = 0x0000000000000020,
         }
     }
 }

@@ -20,8 +20,8 @@ namespace LibProvider
             _startOffset = Utils.SafeCastToUInt32(from.Position);
             _header = new Header(from, nameCatalog);
             _debugFlags = debugFlags;
-            if (Utils.IsDebugFlagEnabled(ReaderProvider.DebugFlags.TraceEmbeddedFileOffset, _debugFlags)) {
-                Utils.DebugTrace($"Embedded '{ArchivedFileTypeName}' found @0x{_startOffset:X8}");
+            if (Utils.IsDebugFlagEnabled(ReaderProvider.DebugFlags.TraceArchiveFileMembers, _debugFlags)) {
+                Utils.DebugTrace($"Archive file '{ArchivedFileTypeName}' found @0x{_startOffset:X8}");
             }
         }
 
@@ -80,7 +80,9 @@ namespace LibProvider
                 GroupId = Utils.ReadAndParseInt32(from, OwnerAndGroupIdsStringLength);
                 FileMode = Utils.ReadAndParseOctalUInt32(from, FileModeLength);
                 FileSize = Utils.ReadAndParseUInt32(from, FileSizeLength);
-                if ((0x60 != from.ReadByte()) || (0x0A != from.ReadByte())) {
+                byte firstTerminatingByte = Utils.ReadByte(from);
+                byte secondTerminatingByte = Utils.ReadByte(from);
+                if ((0x60 != firstTerminatingByte) || (0x0A != secondTerminatingByte)) {
                     throw new ParsingException("Invalid header ending characters.");
                 }
             }
