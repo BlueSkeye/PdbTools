@@ -15,6 +15,10 @@
     "LibProviderTester LegacyKERNEL32.LIB": {
       "commandName": "Project",
       "commandLineArgs": "-dump \"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\SDK\\ScopeCppSDK\\vc15\\SDK\\lib\\kernel32legacylib.LIB\""
+    },
+    "LibProviderTesster NTDLL.LIB": {
+      "commandName": "Project",
+      "commandLineArgs": "-dump \"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\SDK\\ScopeCppSDK\\vc15\\SDK\\lib\\NTDLL.LIB\""
     }
   }
 }

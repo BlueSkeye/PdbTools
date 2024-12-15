@@ -19,5 +19,10 @@ namespace LibProvider
         }
 
         internal override string ArchivedFileTypeName => "Short import file";
+
+        internal void Dump(string prefix)
+        {
+            Utils.DebugTrace($"{prefix}Import {_dllName}:{_importedName}");
+        }
     }
 }

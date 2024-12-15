@@ -98,6 +98,12 @@ namespace LibProvider
                 _longNameMember = new LongNameMember(_inStream, DebugFlags.TraceArchiveFileMembers);
             }
             while (_backupFileLength > _inStream.Position) {
+                // Enforce alignment rule
+                if (0 != (_inStream.Position % 2)) {
+                    _inStream.ReadByte();
+                    // Because we need tp reevaluate exit condition.
+                    continue;
+                }
                 long scannedFileStartOffset = _inStream.Position;
                 ImportFileMember scannedFile = ImportFileMember.Create(_inStream, _longNameMember, _debugFlags);
                 List<ImportFileMember>? homonyms;
@@ -128,6 +134,7 @@ namespace LibProvider
             DumpRelocationData = 0x0000000000000008,
             TraceArchiveFileMemberSectionsData = 0x0000000000000010,
             TraceSymbols = 0x0000000000000020,
+            DumpShortFiles = 0x0000000000000040
         }
     }
 }

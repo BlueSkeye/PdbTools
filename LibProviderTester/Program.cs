@@ -16,6 +16,7 @@ namespace LibProviderTester
                 | ReaderProvider.DebugFlags.DumpRelocationData
                 | ReaderProvider.DebugFlags.TraceArchiveFileMemberSectionsData
                 | ReaderProvider.DebugFlags.TraceSymbols
+                | ReaderProvider.DebugFlags.DumpShortFiles
                 );
             return 0;
         }

@@ -13,10 +13,11 @@ namespace LibProvider
         internal ArchivedFile(MemoryMappedViewStream from, LongNameMember? nameCatalog,
             ReaderProvider.DebugFlags debugFlags)
         {
-            if (0x00023934 == from.Position) {
-                int i = 1;
-            }
             _from = from;
+            // Ensure alignment rule.
+            if (0 != (from.Position % 2)) {
+                from.ReadByte();
+            }
             _startOffset = Utils.SafeCastToUInt32(from.Position);
             _header = new Header(from, nameCatalog);
             _debugFlags = debugFlags;
