@@ -55,10 +55,10 @@ namespace LibProvider
 
         internal override string ArchivedFileTypeName => "second linker member";
 
-        internal ImmutableArray<uint> MemberOffsets { get; private set; }
+        internal IList<uint> MemberOffsets { get; private set; }
 
-        internal ImmutableArray<ushort> SymbolIndices { get; private set; }
+        internal IList<ushort> SymbolIndices { get; private set; }
 
-        internal ImmutableArray<string> SymbolNames { get; private set; }
+        internal IList<string> SymbolNames { get; private set; }
     }
 }

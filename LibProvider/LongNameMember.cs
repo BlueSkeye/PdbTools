@@ -47,7 +47,7 @@ namespace LibProvider
 
         internal string GetNameByOffset(uint offset)
         {
-            int namesCount = MemberNames.Length;
+            int namesCount = MemberNames.Count;
             for(int nameIndex = 0; namesCount > nameIndex; nameIndex++) {
                 if (offset == NamesOffset[nameIndex]) {
                     return MemberNames[nameIndex];
@@ -58,8 +58,8 @@ namespace LibProvider
 
         internal override string ArchivedFileTypeName => "long name member";
 
-        internal ImmutableArray<uint> NamesOffset { get; private set; }
+        internal IList<uint> NamesOffset { get; private set; }
 
-        internal ImmutableArray<string> MemberNames { get; private set; }
+        internal IList<string> MemberNames { get; private set; }
     }
 }

@@ -49,8 +49,8 @@ namespace LibProvider
 
         internal override string ArchivedFileTypeName => "first linker member";
 
-        internal ImmutableArray<uint> Offsets { get; private set; }
+        internal IList<uint> Offsets { get; private set; }
 
-        internal ImmutableArray<string> Strings { get; private set; }
+        internal IList<string> Strings { get; private set; }
     }
 }

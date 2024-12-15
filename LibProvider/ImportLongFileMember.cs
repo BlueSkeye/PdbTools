@@ -8,9 +8,9 @@ namespace LibProvider
     {
         private readonly IMAGE_LONG_IMPORT_HEADER _header;
         private readonly uint _fileContentStartPosition;
-        private readonly ImmutableArray<Section> _sections;
-        private readonly ImmutableArray<string> _strings;
-        private ImmutableArray<IMAGE_SYMBOL_ENTRY>? _symbols;
+        private readonly IList<Section> _sections;
+        private readonly IList<string> _strings;
+        private IList<IMAGE_SYMBOL_ENTRY>? _symbols;
 
         internal ImportLongFileMember(MemoryMappedViewStream from, LongNameMember? nameCatalog,
             ReaderProvider.DebugFlags debugFlags)

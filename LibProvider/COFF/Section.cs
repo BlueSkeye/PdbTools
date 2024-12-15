@@ -5,13 +5,13 @@ namespace LibProvider.COFF
 {
     internal class Section
     {
-        private static readonly ImmutableArray<IMAGE_RELOCATION_ENTRY> NoRelocation =
+        private static readonly IList<IMAGE_RELOCATION_ENTRY> NoRelocation =
             new IMAGE_RELOCATION_ENTRY[0].ToImmutableArray();
-        private static readonly ImmutableArray<byte> NoRowData = new byte[0].ToImmutableArray();
+        private static readonly IList<byte> NoRowData = new byte[0].ToImmutableArray();
         internal readonly IMAGE_SECTION_HEADER Header;
         internal readonly ImportLongFileMember Owner;
-        private ImmutableArray<byte> _rawData;
-        private ImmutableArray<IMAGE_RELOCATION_ENTRY> _relocations;
+        private IList<byte> _rawData;
+        private IList<IMAGE_RELOCATION_ENTRY> _relocations;
 
         /// <summary>On return, stream position is just after the section header.</summary>
         /// <param name="from"></param>
@@ -71,6 +71,6 @@ namespace LibProvider.COFF
             finally { from.Position = savedPosition; }
         }
 
-        internal ImmutableArray<IMAGE_RELOCATION_ENTRY> Relocations { get; private set; }
+        internal IList<IMAGE_RELOCATION_ENTRY> Relocations { get; private set; }
     }
 }
