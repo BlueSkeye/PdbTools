@@ -69,23 +69,25 @@ namespace PdbDumper
                         continue;
                     }
                 }
-                try {
-                    Console.WriteLine($"INFO : Loading PDB file {scannedPdb.FullName}.");
-                    Pdb? pdb = Pdb.Create(scannedPdb,  traceFlags, false);
-                    if (null == pdb) {
-                        Console.WriteLine($"INFO : PDB file won't be scanned.");
-                        continue;
-                    }
-                    Console.WriteLine($"INFO : PDB file {scannedPdb.FullName} successfully loaded.");
-                    LoadDBIStream(pdb);
-                    LoadTPIStream(pdb);
-                    LoadIPIStream(pdb);
-                    Console.WriteLine($"INFO : PDB file {scannedPdb.FullName} successfully scanned.");
-                    scannedFilesCount++;
-                }
-                catch (Exception e) { throw; }
+                Console.WriteLine($"INFO : {scannedPdb.FullName}");
+                scannedFilesCount++;
+                //try {
+                //    Console.WriteLine($"INFO : Loading PDB file {scannedPdb.FullName}.");
+                //    Pdb? pdb = Pdb.Create(scannedPdb,  traceFlags, false);
+                //    if (null == pdb) {
+                //        Console.WriteLine($"INFO : PDB file won't be scanned.");
+                //        continue;
+                //    }
+                //    Console.WriteLine($"INFO : PDB file {scannedPdb.FullName} successfully loaded.");
+                //    LoadDBIStream(pdb);
+                //    LoadTPIStream(pdb);
+                //    LoadIPIStream(pdb);
+                //    Console.WriteLine($"INFO : PDB file {scannedPdb.FullName} successfully scanned.");
+                //    scannedFilesCount++;
+                //}
+                //catch (Exception e) { throw; }
             }
-            Console.WriteLine($"{scannedFilesCount} files scanned.");
+            Console.WriteLine($"{scannedFilesCount} files found.");
             return 0;
         }
 
@@ -112,35 +114,35 @@ namespace PdbDumper
             return 0;
         }
 
-        private static void LoadDBIStream(Pdb pdb)
-        {
-            // The stream header has been read at object instanciation time;
-            DebugInformationStream stream = pdb.DebugInfoStream;
-            stream.EnsureModulesAreLoaded();
-            stream.LoadSectionContributions();
-            stream.EnsureSectionMappingIsLoaded();
-            stream.LoadFileInformations();
-            stream.LoadTypeServerMappings();
-            stream.LoadEditAndContinueMappings();
-            stream.LoadOptionalStreams();
-        }
+        //private static void LoadDBIStream(Pdb pdb)
+        //{
+        //    // The stream header has been read at object instanciation time;
+        //    DebugInformationStream stream = pdb.DebugInfoStream;
+        //    stream.EnsureModulesAreLoaded();
+        //    stream.LoadSectionContributions();
+        //    stream.EnsureSectionMappingIsLoaded();
+        //    stream.LoadFileInformations();
+        //    stream.LoadTypeServerMappings();
+        //    stream.LoadEditAndContinueMappings();
+        //    stream.LoadOptionalStreams();
+        //}
 
-        private static void LoadIPIStream(Pdb pdb)
-        {
-            IdIndexedStream stream = PdbReader.IdIndexedStream.Create(pdb);
-            if (null == stream) {
-                Console.WriteLine("INFO : IPI stream is empty.");
-            }
-            else {
-                stream.LoadRecords();
-            }
-        }
+        //private static void LoadIPIStream(Pdb pdb)
+        //{
+        //    IdIndexedStream stream = PdbReader.IdIndexedStream.Create(pdb);
+        //    if (null == stream) {
+        //        Console.WriteLine("INFO : IPI stream is empty.");
+        //    }
+        //    else {
+        //        stream.LoadRecords();
+        //    }
+        //}
 
-        private static void LoadTPIStream(Pdb pdb)
-        {
-            TypeIndexedStream stream = new PdbReader.TypeIndexedStream(pdb);
-            stream.LoadRecords();
-        }
+        //private static void LoadTPIStream(Pdb pdb)
+        //{
+        //    TypeIndexedStream stream = new PdbReader.TypeIndexedStream(pdb);
+        //    stream.LoadRecords();
+        //}
 
         public static int Main(string[] args)
         {
@@ -149,8 +151,7 @@ namespace PdbDumper
             DirectoryInfo baseDirectory =
                 new FileInfo(Assembly.GetExecutingAssembly().Location).Directory;
             AppDomain.CurrentDomain.AssemblyResolve +=
-                delegate (object? sender, ResolveEventArgs args)
-                {
+                delegate (object? sender, ResolveEventArgs args) {
                     AssemblyName failedName = new AssemblyName(args.Name);
                     switch (failedName.Name) {
                         case "PdbReader":
@@ -161,16 +162,16 @@ namespace PdbDumper
                             return null;
                     }
                 };
-            if (!ParseArgs(args)) {
-                Usage();
-                return 1;
-            }
             _rootCacheDirectory = new DirectoryInfo(
                 Path.Combine(
                     Environment.GetEnvironmentVariable("USERPROFILE")
                         ?? throw new ApplicationException(
                             "Unexpectedly empty USERPROFILE environment variable"),
                     DefaultSymbolCacheRelativePath));
+            if (!ParseArgs(args)) {
+                Usage();
+                return 1;
+            }
             switch (_verb) {
                 case Verb.Cache:
                     return CacheFile();
@@ -193,7 +194,7 @@ namespace PdbDumper
             DirectoryInfo root;
             switch (args[0].ToLower()) {
                 case "-cache":
-                    if (1 > args.Length) {
+                    if (2 > args.Length) {
                         Console.WriteLine("Executable file name is missing.");
                         return false;
                     }
@@ -206,21 +207,23 @@ namespace PdbDumper
                     _verb = Verb.Cache;
                     break;
                 case "-cached":
-                    if (1 > args.Length) {
-                        Console.WriteLine("Cache directory name is missing.");
-                        return false;
+                    if (2 > args.Length) {
+                        Console.WriteLine($"INFO : Using default cache directory {_rootCacheDirectory}.");
                     }
-                    root = new DirectoryInfo(args[1]);
-                    if (!root.Exists) {
-                        Console.WriteLine($"Input directory '{root.FullName}' doesn't exist.");
-                        return false;
+                    else {
+                        root = new DirectoryInfo(args[1]);
+                        if (!root.Exists) {
+                            Console.WriteLine($"Input directory '{root.FullName}' doesn't exist.");
+                            return false;
+                        }
+                        _rootCacheDirectory = root;
                     }
-                    _allFiles = WalkDirectory(root, "*.pdb");
+                    _allFiles = WalkDirectory(_rootCacheDirectory, ".pdb");
                     _enumeratedFilesArePdb = true;
                     _verb = Verb.Enumerate;
                     break;
                 case "-dbidump":
-                    if (1 > args.Length) {
+                    if (2 > args.Length) {
                         Console.WriteLine("Target PDB file name is missing.");
                         return false;
                     }
@@ -230,7 +233,7 @@ namespace PdbDumper
                             $"PDB file {_inputPdb.FullName} doesn't exist.");
                         return false;
                     }
-                    if (2 > args.Length) {
+                    if (3 > args.Length) {
                         Console.WriteLine("Output file name is missing.");
                         return false;
                     }
@@ -243,7 +246,7 @@ namespace PdbDumper
                     _verb = Verb.DBIDump;
                     return true;
                 case "-dir":
-                    if (1 > args.Length) {
+                    if (2 > args.Length) {
                         Console.WriteLine("Scanned directory name is missing.");
                         return false;
                     }
@@ -256,7 +259,7 @@ namespace PdbDumper
                     _verb = Verb.Enumerate;
                     break;
                 case "-explain":
-                    if (1 > args.Length) {
+                    if (2 > args.Length) {
                         Console.WriteLine("Executable file name is missing.");
                         return false;
                     }
@@ -266,7 +269,7 @@ namespace PdbDumper
                             $"Executable file {_targetExecutable.FullName} doesn't exist.");
                         return false;
                     }
-                    if (2 > args.Length) {
+                    if (3 > args.Length) {
                         Console.WriteLine("Target relative virtual address is missing.");
                         return false;
                     }
