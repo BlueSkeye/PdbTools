@@ -1,7 +1,7 @@
 ﻿
 namespace PdbReader.Microsoft.CodeView
 {
-    internal static class Utils
+    internal static class CodeViewUtils
     {
         private const ushort MethodPropertiesMask = 0x001C;
         private const ushort MethodPropertiesShift = 2;
@@ -14,14 +14,6 @@ namespace PdbReader.Microsoft.CodeView
 
         private const uint PointerTypeMask = 0x0000001F;
         private const ushort PointerTypeShift = 0;
-
-        internal static void SafeDecrement(ref uint value, uint decrementBy)
-        {
-            if (value < decrementBy) {
-                throw new BugException();
-            }
-            value -= decrementBy;
-        }
         
         internal static CV_methodprop_e GetMethodProperties(CV_fldattr_t attributes)
         {

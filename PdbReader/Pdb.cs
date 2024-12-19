@@ -6,6 +6,8 @@ namespace PdbReader
 {
     public class Pdb : IPdb
     {
+        /// <summary>For debugging purpose. Allows for skipping files that don't match this name if not
+        /// empty.</summary>
         internal const string DebuggedPdbName = "";
         private const string StringPoolStreamName = "/names";
         private DebugInformationStream _debugInfoStream;
@@ -15,7 +17,6 @@ namespace PdbReader
         private MemoryMappedViewAccessor _mappedPdbView;
         internal readonly FileInfo _pdbFile;
         private Dictionary<uint, string> _pooledStringByOffset;
-        internal static bool _skipCandidate = !string.IsNullOrEmpty(DebuggedPdbName);
         private List<List<uint>> _streamDescriptors = new List<List<uint>>();
         private Dictionary<string, uint> _streamIndexByName;
         private uint[] _streamSizes;
@@ -23,13 +24,18 @@ namespace PdbReader
         private readonly MSFSuperBlock _superBlock;
         private readonly TraceFlags _traceFlags;
 
-        /// <summary>These two members are only valid for a short period of time during object
-        /// initialization.
-        /// Moreover both the map and the count are not initialized unless strict checks are
-        /// enabled.</summary>
+        /// <summary>These two members are only valid for a short period of time during object initialization.
+        /// Moreover both the map and the count are not initialized unless strict checks areenabled.</summary>
         private uint _blockMapBlocksCount = 0;
         private bool[]? _freeBlockMaps = null;
 
+        /// <summary>Initialize a PDB reader by mapping the file and reading the superblock.</summary>
+        /// <param name="target">Target PDB file to open.</param>
+        /// <param name="traceFlags"></param>
+        /// <param name="strictChecks">Whether to perform strict checks or not.</param>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="PDBFormatException"></exception>
         private Pdb(FileInfo target, TraceFlags traceFlags = 0, bool strictChecks = false)
         {
             _pdbFile = target ?? throw new ArgumentNullException(nameof(target));
@@ -55,25 +61,20 @@ namespace PdbReader
             }
         }
 
-        public DebugInformationStream DebugInfoStream
-            => _debugInfoStream ?? throw new BugException();
+        public DebugInformationStream DebugInfoStream => _debugInfoStream ?? throw new BugException();
 
-        internal bool FullDecodingDebugEnabled
-            => (0 != (_traceFlags & TraceFlags.FullDecodingDebug));
+        internal bool FullDecodingDebugEnabled => (0 != (_traceFlags & TraceFlags.FullDecodingDebug));
 
         internal bool FreeBlocksConsistencyDebugEnabled
             => (0 != (_traceFlags & TraceFlags.FreeBlocksConsistencyDebug));
 
-        internal bool IsDebuggedFile => (0 == string.Compare(_pdbFile.Name, DebuggedPdbName, true));
+        internal static bool IsDebuggingEnabled => !string.IsNullOrEmpty(DebuggedPdbName);
 
-        internal bool ShouldTraceNamedStreamMap
-            => (0 != (_traceFlags & TraceFlags.NamedStreamMap));
+        internal bool ShouldTraceNamedStreamMap => (0 != (_traceFlags & TraceFlags.NamedStreamMap));
 
-        internal bool ShouldTraceModules
-            => (0 != (_traceFlags & TraceFlags.ModulesInformation));
+        internal bool ShouldTraceModules => (0 != (_traceFlags & TraceFlags.ModulesInformation));
 
-        internal bool ShouldTraceStreamDirectory
-            => (0 != (_traceFlags & TraceFlags.StreamDirectoryBlocks));
+        internal bool ShouldTraceStreamDirectory => (0 != (_traceFlags & TraceFlags.StreamDirectoryBlocks));
 
         public bool StrictChecksEnabled
         {
@@ -177,15 +178,21 @@ namespace PdbReader
             return result;
         }
 
-        public static Pdb? Create(FileInfo target, TraceFlags traceFlags = 0, bool strictChecks = false)
+        /// <summary>Create a <see cref="Pdb"/> object from the content of the given <paramref name="target"/>
+        /// file.</summary>
+        /// <param name="target">Input file.</param>
+        /// <param name="traceFlags">A combination of trace flags to use for débugging/diagnostic purpose
+        /// while parsing file content.</param>
+        /// <param name="strictChecks">Wether or not to perform strict checks while parsing input file
+        /// content.</param>
+        /// <returns>A <see cref="Pdb"/> instance on successfull parsing or a null reference if any error
+        /// is encountered or debugging mode is enabled and <paramref name="target"/> is not the file to
+        /// be debugged.</returns>
+        public static IPdb? Create(FileInfo target, TraceFlags traceFlags = 0, bool strictChecks = false)
         {
-            if (_skipCandidate && !string.IsNullOrEmpty(DebuggedPdbName)) {
-                if (0 != string.Compare(target.Name, DebuggedPdbName, true)) {
-                    Console.WriteLine($"Skipping {target.Name} for debugging purpose");
-                    return null;
-                }
-                _skipCandidate = false;
-                bool doBreak = true;
+            if (IsDebuggedFile(target)) {
+                Console.WriteLine($"Skipping {target.Name} for debugging purpose");
+                return null;
             }
             Pdb result = new Pdb(target, traceFlags, strictChecks);
             // Verify signature.
@@ -214,7 +221,7 @@ namespace PdbReader
             return result;
         }
 
-        public void DBIDump(BinaryWriter writer)
+        public void DBIDump(StreamWriter writer)
         {
             PdbStreamReader reader = new PdbStreamReader(this, 3);
             uint blockSize = _superBlock.BlockSize;
@@ -222,12 +229,15 @@ namespace PdbReader
             uint chunkSize = chunksPerBlock * blockSize;
             byte[] buffer = new byte[chunkSize];
             uint remainingBytes = reader.StreamSize;
+            StringBuilder builder = new StringBuilder();
             while (0 < remainingBytes) {
                 uint readSize = Math.Min(remainingBytes, chunkSize);
-                _mappedPdbView.ReadArray<byte>(reader.GetGlobalOffset().Value,
-                    buffer, 0, (int)readSize);
+                uint blockOffset = reader.GetGlobalOffset().Value;
+                _mappedPdbView.ReadArray<byte>(blockOffset, buffer, 0, (int)readSize);
                 reader.Offset += readSize;
-                writer.Write(buffer, 0, Pdb.SafeCastToInt32(readSize));
+                string dumpString = Utils.HexadecimalFormat(builder, blockOffset, buffer,
+                    Utils.SafeCastToInt32(readSize)).ToString();
+                writer.Write(dumpString);
                 remainingBytes -= readSize;
             }
             return;
@@ -261,10 +271,13 @@ namespace PdbReader
             return;
         }
 
+        /// <summary>Enumerate all public symbols from the PDB file.</summary>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
         private IEnumerable<object> EnumeratePublicSymbols()
         {
             PublicSymbolStream publicSymbolStream = new PublicSymbolStream(this,
-                SafeCastToUint16(_debugInfoStream.PublicSymbolsStreamIndex));
+                Utils.SafeCastToUint16(_debugInfoStream.PublicSymbolsStreamIndex));
             publicSymbolStream.Load();
             throw new NotImplementedException();
         }
@@ -287,26 +300,21 @@ namespace PdbReader
             Marshal.Copy(localBuffer, 0, IntPtr.Add(buffer, bufferOffset), (int)fillSize);
         }
 
-        /// <summary>Retrieve definition of the module having the given identifier.</param>
-        /// <returns>The module definition or a null reference if no such module could be
-        /// found.</returns>
+        /// <remarks>See <see cref="IPdb.FindModuleById(uint)"/></remarks>
         public ModuleInfoRecord? FindModuleById(uint moduleId)
         {
             AssertDebugInformation();
             return _debugInfoStream.FindModuleById(moduleId);
         }
 
-        /// <summary>Retrieve definition of the module within which the RVA is located.</summary>
-        /// <param name="relativeVirtualAddress">The relative virtual address to be
-        /// searched.</param>
-        /// <returns>The module definition or a null reference if no such module could be
-        /// found.</returns>
+        /// <remarks>See <see cref="IPdb.FindModuleByRVA(uint)"/></remarks>
         public ModuleInfoRecord? FindModuleByRVA(uint relativeVirtualAddress)
         {
             AssertDebugInformation();
             return _debugInfoStream.FindModuleByRVA(relativeVirtualAddress);
         }
 
+        /// <remarks>See <see cref="IPdb.FindSectionContribution(uint)"/></remarks>
         public SectionContributionEntry? FindSectionContribution(uint relativeVirtualAddress)
         {
             if (null == _debugInfoStream) {
@@ -327,6 +335,7 @@ namespace PdbReader
             return (uint)result;
         }
 
+        /// <remarks>See <see cref="IPdb.GetModuleFiles(uint)"/></remarks>
         public List<string> GetModuleFiles(uint moduleIndex)
         {
             List<string> result = new List<string>();
@@ -335,7 +344,6 @@ namespace PdbReader
             if (null == module) {
                 throw new ArgumentException($"Invalid module index #{moduleIndex}");
             }
-
             return result;
         }
 
@@ -349,13 +357,8 @@ namespace PdbReader
             return result;
         }
 
-        /// <summary>Retrieve a mapped section by its index.</summary>
-        /// <param name="index">Index of the searched mapped section.</param>
-        /// <returns>The section descriptor.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">The index value doesn't
-        /// match any mapped section index.</exception>
-        public SectionMapEntry GetSection(uint index)
-            => _debugInfoStream.GetSection(index);
+        /// <remarks>See <see cref="IPdb.GetSection(uint)"/></remarks>
+        public SectionMapEntry GetSection(uint index) => _debugInfoStream.GetSection(index);
 
         /// <summary>Returns an array of block indexes for the stream having the given
         /// index.</summary>
@@ -404,12 +407,21 @@ namespace PdbReader
             return Encoding.ASCII.GetString(buffer, (int)bufferOffset, stringLength);
         }
 
+        /// <remarks>See <see cref="IPdb.InitializeSymbolsMap()"/></remarks>
         public void InitializeSymbolsMap()
         {
             foreach (object symbol in EnumeratePublicSymbols()) {
                 bool doBreak = true;
             }
             return;
+        }
+
+        /// <summary>Does the <paramref name="candidate"/> file should be debugged.</summary>
+        /// <param name="candidate">Candidate file.</param>
+        /// <returns></returns>
+        internal static bool IsDebuggedFile(FileInfo candidate)
+        {
+            return IsDebuggingEnabled && (0 == string.Compare(candidate.Name, DebuggedPdbName, true));
         }
 
         internal bool IsFreeBlockMapBlock(int candidate)
@@ -645,30 +657,6 @@ namespace PdbReader
                 Console.WriteLine($"FBC : Block #{blockIndex} is in use.");
             }
             _knownInUseBlocks[blockIndex] = true;
-        }
-
-        internal static int SafeCastToInt32(uint value)
-        {
-            if (int.MaxValue < value) { throw new BugException(); }
-            return (int)value;
-        }
-
-        internal static ushort SafeCastToUint16(uint value)
-        {
-            if (ushort.MaxValue < value) { throw new BugException(); }
-            return (ushort)value;
-        }
-
-        internal static uint SafeCastToUint32(long value)
-        {
-            if (0 > value) { throw new BugException(); }
-            return SafeCastToUint32((ulong)value);
-        }
-
-        internal static uint SafeCastToUint32(ulong value)
-        {
-            if (uint.MaxValue < value) { throw new BugException(); }
-            return (uint)value;
         }
 
         [Flags()]

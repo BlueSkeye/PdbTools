@@ -2,9 +2,24 @@
 
 namespace PdbReader
 {
+    /// <summary>This interface defines every publicly available method from an object returned by
+    /// <see cref="Pdb.Create(FileInfo, Pdb.TraceFlags, bool)"/> method.</summary>
     public interface IPdb
     {
-        void DBIDump(BinaryWriter outputStream);
+        DebugInformationStream DebugInfoStream { get; }
+
+        /// <summary>Get or set a flag telling whether strict checks are enabled.</summary>
+        bool StrictChecksEnabled { get; set; }
+
+        /// <summary>Get index of the string pool.</summary>
+        uint StringPoolStreamIndex { get; }
+
+        void DBIDump(StreamWriter outputStream);
+
+        /// <summary>Retrieve definition of the module having the given identifier.</param>
+        /// <returns>The module definition or a null reference if no such module could be
+        /// found.</returns>
+        ModuleInfoRecord? FindModuleById(uint identifier);
 
         /// <summary>Retrieve definition of the module within which the RVA is located.</summary>
         /// <param name="relativeVirtualAddress">The relative virtual address to be
@@ -13,8 +28,10 @@ namespace PdbReader
         /// found.</returns>
         ModuleInfoRecord? FindModuleByRVA(uint relativeVirtualAddress);
 
-        ModuleInfoRecord? FindModuleById(uint identifier);
-
+        /// <summary></summary>
+        /// <param name="relativeVirtualAddress">RVA of the item which section contribution is to
+        /// be retrieved.</param>
+        /// <returns></returns>
         SectionContributionEntry? FindSectionContribution(uint relativeVirtualAddress);
 
         /// <summary>Get a list of file names, each of which participate in the module having
@@ -30,6 +47,7 @@ namespace PdbReader
         /// match any mapped section index.</exception>
         SectionMapEntry GetSection(uint index);
 
+        /// <summary>Initialize symbols map.</summary>
         void InitializeSymbolsMap();
     }
 }

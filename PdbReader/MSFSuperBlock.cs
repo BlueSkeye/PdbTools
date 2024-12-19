@@ -2,6 +2,8 @@
 
 namespace PdbReader
 {
+    /// <summary></summary>
+    /// <remarks>https://llvm.org/docs/PDB/MsfFile.html#msf-superblock</remarks>
     [StructLayout(LayoutKind.Sequential)]
     internal struct MSFSuperBlock
     {

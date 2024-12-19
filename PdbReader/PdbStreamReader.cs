@@ -427,7 +427,7 @@ namespace PdbReader
                 //case LEAF_ENUM_e.UnsignedLongInteger:
                 //    return (long)ReadUInt64();
                 default:
-                    if (Utils.IsValidBuiltinType((LEAF_ENUM_e)firstWord)) {
+                    if (CodeViewUtils.IsValidBuiltinType((LEAF_ENUM_e)firstWord)) {
                         throw new NotSupportedException(
                             $"Unsupported builtin type identifier 0x{firstWord:X4}.");
                     }

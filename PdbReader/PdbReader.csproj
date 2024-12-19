@@ -65,7 +65,7 @@
     <Compile Include="Microsoft\CodeView\UDTModuleSourceLine.cs" />
     <Compile Include="Microsoft\CodeView\UDTSourceLine.cs" />
     <Compile Include="Microsoft\CodeView\Union.cs" />
-    <Compile Include="Microsoft\CodeView\Utils.cs" />
+    <Compile Include="Microsoft\CodeView\CodeViewUtils.cs" />
     <Compile Include="Microsoft\CodeView\VirtualBaseClass.cs" />
     <Compile Include="Microsoft\CodeView\VirtualFunctionTable.cs" />
     <Compile Include="Microsoft\CodeView\VirtualFunctionTablePointer.cs" />
@@ -91,6 +91,7 @@
     <Compile Include="TypeIndexedStream.cs" />
     <Compile Include="..\SharedSource\BugException.cs" />
     <Compile Include="..\SharedSource\KnownDirectories.cs" />
+    <Compile Include="Utils.cs" />
 
   </ItemGroup>
 

@@ -17,7 +17,7 @@ namespace PdbReader.Microsoft.CodeView
                 _oneMethod = reader.Read<_OneMethod>(),
             };
             Utils.SafeDecrement(ref maxLength, _OneMethod.Size);
-            CV_methodprop_e methodProperties = Utils.GetMethodProperties(result._oneMethod.attr);
+            CV_methodprop_e methodProperties = CodeViewUtils.GetMethodProperties(result._oneMethod.attr);
             switch (methodProperties) {
                 case CV_methodprop_e.Introduction:
                 case CV_methodprop_e.PureIntroduction:

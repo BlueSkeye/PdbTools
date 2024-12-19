@@ -8,6 +8,8 @@ namespace PdbDumper
 {
     public static class Dumper
     {
+        private delegate bool FileFilterDelegate(FileInfo candidate);
+
         private const string DefaultSymbolCacheRelativePath =
             @"AppData\Local\Temp\SymbolCache";
         private static IEnumerable<FileInfo> _allFiles;
@@ -19,6 +21,9 @@ namespace PdbDumper
         private static FileInfo _targetExecutable;
         private static Verb _verb;
 
+        /// <summary>Cache into the <see cref="_rootCacheDirectory"/> the PDB file referenced from the
+        /// <see cref="_targetExecutable"/>.</summary>
+        /// <returns>0 on success, 1 otherwise.</returns>
         private static int CacheFile()
         {
             FileInfo? pdbFile = new Downloader(_rootCacheDirectory).CachePdb(_targetExecutable);
@@ -29,6 +34,8 @@ namespace PdbDumper
             return 0;
         }
 
+        /// <summary>Dump hewadecimal content of each stream in <see cref="_inputPdb"/> file.</summary>
+        /// <returns>0 on success, 1 otherwise.</returns>
         private static int DBIDump()
         {
             Pdb.TraceFlags traceFlags =
@@ -36,12 +43,12 @@ namespace PdbDumper
                 // | Pdb.TraceFlags.FullDecodingDebug
                 // | Pdb.TraceFlags.StreamDirectoryBlocks
                 ;
-            Pdb? pdb = Pdb.Create(_inputPdb,  traceFlags, false);
+            IPdb? pdb = Pdb.Create(_inputPdb,  traceFlags, false);
             if (null == pdb) {
                 Console.WriteLine($"ERROR : Unable to open PDB.");
                 return 1;
             }
-            using (BinaryWriter writer = new BinaryWriter(File.OpenWrite(_outputFile.FullName))) {
+            using (StreamWriter writer = new StreamWriter(File.OpenWrite(_outputFile.FullName))) {
                 pdb.DBIDump(writer);
                 return 0;
             }
@@ -98,7 +105,7 @@ namespace PdbDumper
                 Console.WriteLine($"Can't find or load PDB for file {_targetExecutable.FullName}");
                 return 1;
             }
-            Pdb? pdb = Pdb.Create(pdbFile);
+            Pdb? pdb = (Pdb?)Pdb.Create(pdbFile);
             if (null == pdb) {
                 throw new ApplicationException($"Couldn't load PDB file {pdbFile.FullName}");
             }
@@ -319,13 +326,14 @@ namespace PdbDumper
             Console.WriteLine("\tin the executable file.");
         }
 
+        /// <summary>A file enumerator that will enumerate the one and only parameter file</summary>
+        /// <param name="candidate"></param>
+        /// <returns></returns>
         private static IEnumerable<FileInfo> SingleFileEnumerator(FileInfo candidate)
         {
             yield return candidate;
             yield break;
         }
-
-        private delegate bool FileFilterDelegate(FileInfo candidate);
 
         private static IEnumerable<FileInfo> WalkDirectory(DirectoryInfo root,
             string fileExtension)

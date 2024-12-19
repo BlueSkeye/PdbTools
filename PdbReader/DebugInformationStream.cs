@@ -77,7 +77,7 @@ namespace PdbReader
             if (null == _mappedSections) {
                 throw new BugException();
             }
-            int trueIndex = Pdb.SafeCastToInt32(candidate);
+            int trueIndex = Utils.SafeCastToInt32(candidate);
             if (0 == trueIndex) {
                 throw new ArgumentOutOfRangeException(nameof(candidate));
             }
@@ -263,7 +263,7 @@ namespace PdbReader
         /// already loaded and no check is performed on this.</remarks>
         private ModuleInfoRecord? _FindModuleByIdUnsafe(uint index)
         {
-            int trueIndex = Pdb.SafeCastToInt32(index);
+            int trueIndex = Utils.SafeCastToInt32(index);
             if (_modules.Count <= index) {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
@@ -305,7 +305,7 @@ namespace PdbReader
                 _header.SectionContributionSize + _header.SectionMapSize +
                 _header.SourceInfoSize + _header.TypeServerMapSize +
                 _header.ECSubstreamSize;
-            _reader.Offset = Pdb.SafeCastToUint32(newOffset);
+            _reader.Offset = Utils.SafeCastToUint32(newOffset);
 
             // Read optional streams index.
             _fpoDataStreamIndex = GetOptionalStreamIndex();
@@ -368,7 +368,7 @@ namespace PdbReader
             ulong newOffset = (uint)Marshal.SizeOf<DBIStreamHeader>() +
                 _header.ModInfoSize + _header.SectionContributionSize +
                 _header.SectionMapSize;
-            _reader.Offset = Pdb.SafeCastToUint32(newOffset);
+            _reader.Offset = Utils.SafeCastToUint32(newOffset);
             IStreamGlobalOffset globalOffset = _reader.GetGlobalOffset();
 
             // Read stream content.
@@ -630,7 +630,7 @@ namespace PdbReader
             // Set stream position
             ulong newOffset = (uint)Marshal.SizeOf<DBIStreamHeader>() +
                 _header.ModInfoSize;
-            _reader.Offset = Pdb.SafeCastToUint32(newOffset);
+            _reader.Offset = Utils.SafeCastToUint32(newOffset);
 
             // Read stream content.
             uint streamVersion = _reader.ReadUInt32();
@@ -662,7 +662,7 @@ namespace PdbReader
             ulong newOffset = (uint)Marshal.SizeOf<DBIStreamHeader>() +
                 _header.ModInfoSize + _header.SectionContributionSize +
                 _header.SectionMapSize + _header.SourceInfoSize;
-            _reader.Offset = Pdb.SafeCastToUint32(newOffset);
+            _reader.Offset = Utils.SafeCastToUint32(newOffset);
             throw new NotImplementedException();
         }
 
