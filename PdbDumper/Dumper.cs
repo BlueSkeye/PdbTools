@@ -15,6 +15,7 @@ namespace PdbDumper
         private static IEnumerable<FileInfo> _allFiles;
         private static bool _enumeratedFilesArePdb;
         private static uint _explanationRVA;
+        private static bool _hexadump = false;
         private static FileInfo _inputPdb;
         private static FileInfo _outputFile;
         private static DirectoryInfo _rootCacheDirectory;
@@ -36,7 +37,7 @@ namespace PdbDumper
 
         /// <summary>Dump hewadecimal content of each stream in <see cref="_inputPdb"/> file.</summary>
         /// <returns>0 on success, 1 otherwise.</returns>
-        private static int DBIDump()
+        private static int DBIDump(bool hexadump)
         {
             Pdb.TraceFlags traceFlags =
                 0
@@ -49,7 +50,7 @@ namespace PdbDumper
                 return 1;
             }
             using (StreamWriter writer = new StreamWriter(File.OpenWrite(_outputFile.FullName))) {
-                pdb.DBIDump(writer);
+                pdb.DBIDump(writer, hexadump);
                 return 0;
             }
         }
@@ -185,7 +186,7 @@ namespace PdbDumper
                 case Verb.Enumerate:
                     return EnumerateFiles();
                 case Verb.DBIDump:
-                    return DBIDump();
+                    return DBIDump(_hexadump);
                 case Verb.Explain:
                     return Explain();
                 default:
@@ -229,6 +230,9 @@ namespace PdbDumper
                     _enumeratedFilesArePdb = true;
                     _verb = Verb.Enumerate;
                     break;
+                case "-dbidumphexa":
+                    _hexadump = true;
+                    goto case "-dbidump";
                 case "-dbidump":
                     if (2 > args.Length) {
                         Console.WriteLine("Target PDB file name is missing.");
@@ -319,6 +323,8 @@ namespace PdbDumper
             Console.WriteLine($"{assemblyName} <pdb file>");
             Console.WriteLine("\t | -cache <executable file>");
             Console.WriteLine("\t | -cached <directory>");
+            Console.WriteLine("\t | -dbidump <pdb file>");
+            Console.WriteLine("\t | -dbidumphexa <pdb file>");
             Console.WriteLine("\t | -dir <directory>");
             Console.WriteLine("\t | -explain <executable file> <RVA>");
             Console.WriteLine();

@@ -220,11 +220,9 @@ namespace PdbReader
             result.EnsureStringPoolBuffering();
             return result;
         }
-
-        public void DBIDump(StreamWriter writer)
+        
+        private void DBIHexaDump(StreamWriter writer, PdbStreamReader reader)
         {
-            writer.WriteLine("DBI stream dump :");
-            PdbStreamReader reader = new PdbStreamReader(this, 3);
             uint blockSize = _superBlock.BlockSize;
             uint chunksPerBlock = 16;
             uint chunkSize = chunksPerBlock * blockSize;
@@ -241,6 +239,20 @@ namespace PdbReader
                 writer.Write(dumpString);
                 remainingBytes -= readSize;
                 builder.Clear();
+            }
+            return;
+        }
+        
+        public void DBIDump(StreamWriter writer, bool hexadump)
+        {
+            writer.WriteLine("DBI stream dump :");
+            if (hexadump) {
+                PdbStreamReader reader = new PdbStreamReader(this, 3);
+                DBIHexaDump(writer, reader);
+            }
+            else {
+                DebugInformationStream dbiStream = new DebugInformationStream(this);
+                dbiStream.Dump(writer);
             }
             return;
         }

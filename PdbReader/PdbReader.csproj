@@ -10,7 +10,11 @@
 
   <ItemGroup>
     <Compile Include="BlockMapReader.cs" />
+    <Compile Include="DBIStreamHeader.cs" />
     <Compile Include="DebugInformationStream.cs" />
+    <Compile Include="EditAndContinueMappingHeader.cs" />
+    <Compile Include="FIXUP_DATA.cs" />
+    <Compile Include="FPO_DATA.cs" />
     <Compile Include="HashTable.cs" />
     <Compile Include="HashTableReader.cs" />
     <Compile Include="IdIndexedStream.cs" />
@@ -87,6 +91,7 @@
     <Compile Include="SectionContributionEntry.cs" />
     <Compile Include="SectionContributionSubstreamVersion.cs" />
     <Compile Include="SectionMapEntry.cs" />
+    <Compile Include="SectionMapHeader.cs" />
     <Compile Include="StringPoolHeader.cs" />
     <Compile Include="TypeIndexedStream.cs" />
     <Compile Include="..\SharedSource\BugException.cs" />

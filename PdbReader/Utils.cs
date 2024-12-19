@@ -5,28 +5,45 @@ namespace PdbReader
 {
     internal static class Utils
     {
+        private const int HexaFormatLineSize = 16;
+        private const int HexaFormatSemilineSize = HexaFormatLineSize / 2;
+        private static StringBuilder displayStringBuilder = new StringBuilder(HexaFormatLineSize);
+
+        private static char GetDisplayCharacterForHexaDump(byte scannedByte)
+        {
+            return ((32 <= scannedByte) && (126 >= scannedByte)) ? (char)scannedByte : '.';
+        }
+
         internal static StringBuilder HexadecimalFormat(uint blockOffset, byte[] data, int blockSize)
         {
             return HexadecimalFormat(new StringBuilder(), blockOffset, data, blockSize);
         }
 
+        /// <summary></summary>
+        /// <param name="into"></param>
+        /// <param name="blockOffset"></param>
+        /// <param name="data"></param>
+        /// <param name="blockSize"></param>
+        /// <returns></returns>
+        /// <remarks>This method is not thread safe.</remarks>
         internal static StringBuilder HexadecimalFormat(StringBuilder into, uint blockOffset, byte[] data,
             int blockSize)
         {
-            const int LineSize = 16;
-            const int SemilineSize = LineSize / 2;
             int relativeOffset = 0;
             while (relativeOffset < blockSize) {
                 into.Append($"{(blockOffset + relativeOffset):X8} : ");
-                int indexUpperBound = Math.Min(LineSize, (blockSize - relativeOffset));
-                for(int index = 0; index < LineSize; index++) {
-                    into.Append($"{data[relativeOffset]:X2} ");
-                    if (0 == (index % SemilineSize)) {
+                int indexUpperBound = Math.Min(HexaFormatLineSize, (blockSize - relativeOffset));
+                for(int index = 0; index < HexaFormatLineSize; /* index incremented inside the loop */) {
+                    byte scannedByte = data[relativeOffset + index];
+                    displayStringBuilder.Append(GetDisplayCharacterForHexaDump(scannedByte));
+                    into.Append($"{scannedByte:X2} ");
+                    if (0 == (++index % HexaFormatSemilineSize)) {
                         into.Append("- ");
                     }
                 }
-                into.AppendLine();
-                relativeOffset += LineSize;
+                into.AppendLine($"{displayStringBuilder.ToString()}");
+                displayStringBuilder.Clear();
+                relativeOffset += HexaFormatLineSize;
             }
             return into;
         }

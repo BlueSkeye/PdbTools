@@ -9,6 +9,7 @@ namespace PdbReader
     public class DebugInformationStream
     {
         private const uint ThisStreamIndex = 3;
+
         private DBIStreamHeader _header;
         private ushort? _exceptionDataStreamIndex;
         private ushort? _fixupDataStreamIndex;
@@ -53,8 +54,7 @@ namespace PdbReader
         private uint FileInformationSubstreamOffset
             => SectionMapSubstreamOffset + _header.SectionMapSize;
 
-        private uint ModuleInformationSubstreamOffset
-            => DBIStreamHeader.Size;
+        private uint ModuleInformationSubstreamOffset => DBIStreamHeader.Size;
 
         private uint OptionalDebugSubstreamOffset
             => EditAndContinueSubstreamOffset + _header.ECSubstreamSize;
@@ -85,6 +85,15 @@ namespace PdbReader
                 throw new ArgumentOutOfRangeException(nameof(candidate));
             }
             return trueIndex - 1;
+        }
+
+        /// <summary>Dump into <paramref name="into"/> a human readable summary of the DBI stream.</summary>
+        /// <param name="into"></param>
+        internal void Dump(StreamWriter into, string prefix = "")
+        {
+            _header.Dump(into, prefix);
+            throw new NotImplementedException();
+            return;
         }
 
         /// <summary>Make sure modules definition - as well as associated sections - are
@@ -566,13 +575,13 @@ namespace PdbReader
         {
             // Stream indexes have already been loaded during object initialization.
             if (null != _fpoDataStreamIndex) {
-                List<_FPO_DATA> result = LoadOptionalStream<_FPO_DATA>(_fpoDataStreamIndex, "FPO Data");
+                List<FPO_DATA> result = LoadOptionalStream<FPO_DATA>(_fpoDataStreamIndex, "FPO Data");
             }
             if (null != _exceptionDataStreamIndex) {
                 LoadExceptionDataStream();
             }
             if (null != _fixupDataStreamIndex) {
-                List<_FIXUP_DATA> result = LoadOptionalStream<_FIXUP_DATA>(_fixupDataStreamIndex,
+                List<FIXUP_DATA> result = LoadOptionalStream<FIXUP_DATA>(_fixupDataStreamIndex,
                     "Fixup Data");
             }
             if (null != _omapToSourceMappingStreamIndex) {
@@ -612,7 +621,7 @@ namespace PdbReader
                 // throw new NotImplementedException();
             }
             if (null != _newFPODataStreamIndex) {
-                List<_FPO_DATA> result = LoadOptionalStream<_FPO_DATA>(_newFPODataStreamIndex, "New FPO Data");
+                List<FPO_DATA> result = LoadOptionalStream<FPO_DATA>(_newFPODataStreamIndex, "New FPO Data");
             }
             if (null != _originalSectionHeaderDataStreamIndex) {
                 // TODO : Stream content is undocumented.
@@ -664,164 +673,6 @@ namespace PdbReader
                 _header.SectionMapSize + _header.SourceInfoSize;
             _reader.Offset = Utils.SafeCastToUint32(newOffset);
             throw new NotImplementedException();
-        }
-
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        internal struct DBIStreamHeader
-        {
-            internal static readonly uint Size = (uint)Marshal.SizeOf<DBIStreamHeader>();
-            /// <summary>Always uint.MaxValue.</summary>
-            internal uint Magic;
-            /// <summary>this value always appears to be V70, and it is not clear what the other
-            /// values are for.</summary>
-            internal StreamVersion VersionHeader;
-            /// <summary>The number of times the PDB has been written. Equal to the same field
-            /// from the PDB Stream header.</summary>
-            internal uint Age;
-            /// <summary>The index of the Global Symbol Stream, which contains CodeView symbol
-            /// records for all global symbols. Actual records are stored in the symbol record
-            /// stream, and are referenced from this stream.</summary>
-            internal ushort GlobalStreamIndex;
-            /// <summary>A bitfield containing values representing the major and minor version
-            /// number of the toolchain (e.g. 12.0 for MSVC 2013) used to build the program.
-            /// For bit layout <see cref="GetMajorVersion()"/>,  <see cref="GetMinorVersion()"/>
-            /// and <see cref="IsNewVersionFormat()"/></summary>
-            internal ushort BuildNumber;
-            /// <summary>The index of the Public Symbol Stream, which contains CodeView symbol
-            /// records for all public symbols. Actual records are stored in the symbol record
-            /// stream, and are referenced from this stream.</summary>
-            internal ushort PublicStreamIndex;
-            /// <summary>The version number of mspdbXXXX.dll used to produce this PDB.</summary>
-            internal ushort PdbDllVersion;
-            /// <summary>The stream containing all CodeView symbol records used by the program.
-            /// This is used for deduplication, so that many different compilands can refer to
-            /// the same symbols without having to include the full record content inside of
-            /// each module stream.</summary>
-            internal ushort SymRecordStream;
-            /// <summary>Unknown</summary>
-            internal ushort PdbDllRbld;
-            /// <summary>The length of the Module Info Substream.</summary>
-            internal uint ModInfoSize;
-            /// <summary>The length of the Section Contribution Substream.</summary>
-            internal uint SectionContributionSize;
-            /// <summary>The length of the Section Map Substream.</summary>
-            internal uint SectionMapSize;
-            /// <summary>The length of the File Info Substream.</summary>
-            internal uint SourceInfoSize;
-            /// <summary>The length of the Type Server Map Substream.</summary>
-            internal uint TypeServerMapSize;
-            /// <summary>The index of the MFC type server in the Type Server Map Substream.</summary>
-            internal uint MFCTypeServerIndex;
-            /// <summary>The length of the Optional Debug Header Stream.</summary>
-            internal int OptionalDbgHeaderSize;
-            /// <summary>The length of the EC Substream.</summary>
-            internal uint ECSubstreamSize;
-            /// <summary>A bitfield containing various information about how the program was
-            /// built. For bit layout <see cref="HasConflictingTypes()"/>
-            /// </summary>
-            internal ushort Flags;
-            /// <summary>A value from the CV_CPU_TYPE_e enumeration. Common values are 0x8664
-            /// (x86-64) and 0x14C (x86).</summary>
-            internal CV_CPU_TYPE_e Machine;
-            internal uint Padding;
-
-            internal bool IsNewVersionFormat() => (0 != (BuildNumber & 0x8000));
-
-            internal uint GetMajorVersion() => (uint)((BuildNumber & 0x7F00) >> 8);
-
-            internal uint GetMinorVersion() => (uint)(BuildNumber & 0xFF);
-
-            [Flags()]
-            internal enum _Flags : ushort
-            {
-                IncrementallyLinked = 0x0001,
-                PrivateSymbolsStripped = 0x0002,
-                HasConflictingTypes = 0x0004,
-            }
-
-            /// <summary>Note that values are different from the ones in
-            /// <see cref="PdbStreamVersion"/></summary>
-            internal enum StreamVersion : uint
-            {
-                VC41 = 930803,
-                V50 = 19960307,
-                V60 = 19970606,
-                V70 = 19990903,
-                V110 = 20091201
-            }
-        }
-
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        internal struct EditAndContinueMappingHeader
-        {
-            internal const uint SignatureValue = 0xEFFEEFFE;
-
-            // Should be 0xEFFEEFFE
-            internal uint Signature;
-            internal uint Unkown1;
-            internal uint StringPoolBytesSize;
-            internal byte Unknown3;
-        }
-
-        // TODO : Undocumented structure.
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct _FIXUP_DATA
-        {
-            internal _Flags Flags;
-            internal uint Unknown1;
-            internal uint Unknown2;
-
-            [Flags()]
-            public enum _Flags : uint
-            {
-                /// <summary>Seems that when this flag is set, Unknown2 may be a length, otherwise
-                /// Unknown1 &lt Unknown2 and both are close to each other.</summary>
-                HasLength = 0x80000000
-            }
-        }
-
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct _FPO_DATA
-        {
-            // offset 1st byte of function code
-            internal uint ulOffStart;
-            // # bytes in function
-            internal uint cbProcSize;
-            // # bytes in locals/4
-            internal uint cdwLocals;
-            // # bytes in params/4
-            internal ushort cdwParams;
-            // # bytes in prolog
-            internal byte cbProlog;
-            internal _Flags Flags;
-
-            [Flags()]
-            public enum _Flags : byte
-            {
-                NoRegSaved = 0x00,
-                OneRegSaved = 0x01,
-                TwoRegsSaved = 0x02,
-                ThreeRegsSaved = 0x03,
-                FourRegsSaved = 0x04,
-                FiveRegsSaved = 0x05,
-                SixRegsSaved = 0x06,
-                SevenRegsSaved = 0x07,
-                HasStructuredExceptionHandling = 0x08,
-                UseEBP = 0x10,
-                Reserverd = 0x20,
-                FrameFPO = 0x40,
-                FrameTrap = 0x80,
-                FrameTSS = 0xC0
-            }
-        }
-
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        internal struct SectionMapHeader
-        {
-            // Number of segment descriptors in table
-            internal ushort SecCount;
-            // Number of logical segment descriptors
-            internal ushort SecCountLog;
         }
 
         private class SortedMemoryRangeList<T> :

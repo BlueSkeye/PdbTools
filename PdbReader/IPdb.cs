@@ -14,7 +14,11 @@ namespace PdbReader
         /// <summary>Get index of the string pool.</summary>
         uint StringPoolStreamIndex { get; }
 
-        void DBIDump(StreamWriter outputStream);
+        /// <summary>Dump the hexadecimal content of the DBI stream.</summary>
+        /// <param name="outputStream">Output stream where to write dumped content.</param>
+        /// <param name="hexadump">true if dumping should in hexadecimal format. Otherwise the content
+        /// will be interpreted.</param>
+        void DBIDump(StreamWriter outputStream, bool hexadump);
 
         /// <summary>Retrieve definition of the module having the given identifier.</param>
         /// <returns>The module definition or a null reference if no such module could be
