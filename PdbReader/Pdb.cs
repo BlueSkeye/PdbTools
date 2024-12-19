@@ -223,6 +223,7 @@ namespace PdbReader
 
         public void DBIDump(StreamWriter writer)
         {
+            writer.WriteLine("DBI stream dump :");
             PdbStreamReader reader = new PdbStreamReader(this, 3);
             uint blockSize = _superBlock.BlockSize;
             uint chunksPerBlock = 16;
@@ -239,6 +240,7 @@ namespace PdbReader
                     Utils.SafeCastToInt32(readSize)).ToString();
                 writer.Write(dumpString);
                 remainingBytes -= readSize;
+                builder.Clear();
             }
             return;
         }

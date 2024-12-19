@@ -1,7 +1,12 @@
 {
   "profiles": {
-    "PdbDumper": {
-      "commandName": "Project"
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    },
+    "PdbDumper NTDLL -dbidump": {
+      "commandName": "Project",
+      "commandLineArgs": "-dbidump C:\\Users\\jp.forestier\\AppData\\Local\\Temp\\SymbolCache\\ntdll.pdb\\0AF9B92CB2856CFB0C54EC42CE8E3377\\ntdll.pdb c:\\WORK\\NTDLLPDB.txt"
     }
   }
 }

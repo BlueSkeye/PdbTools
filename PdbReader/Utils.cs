@@ -18,6 +18,7 @@ namespace PdbReader
             int relativeOffset = 0;
             while (relativeOffset < blockSize) {
                 into.Append($"{(blockOffset + relativeOffset):X8} : ");
+                int indexUpperBound = Math.Min(LineSize, (blockSize - relativeOffset));
                 for(int index = 0; index < LineSize; index++) {
                     into.Append($"{data[relativeOffset]:X2} ");
                     if (0 == (index % SemilineSize)) {
@@ -25,6 +26,7 @@ namespace PdbReader
                     }
                 }
                 into.AppendLine();
+                relativeOffset += LineSize;
             }
             return into;
         }
