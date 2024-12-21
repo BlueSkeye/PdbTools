@@ -2,15 +2,18 @@
 
 namespace PdbReader
 {
+    /// <remarks>See https://llvm.org/docs/PDB/DbiStream.html#id6</remarks>
     public class SectionMapEntry
     {
         private const ushort NullStringOffset = ushort.MaxValue;
         private _SectionMapEntry _data;
 
+        /// <summary>Class name associated with this entry. May be a null reference value.</summary>
         public string? ClassName { get; private set; }
 
         public SectionFlags Flags => _data.Flags;
 
+        /// <summary>Section name associated with this entry. May be a null reference value.</summary>
         public string? SectionName { get; private set; }
 
         internal static SectionMapEntry Create(PdbStreamReader reader)
@@ -29,6 +32,12 @@ namespace PdbReader
             return result;
         }
 
+        /// <summary>Compare <paramref name="candidate"/> value with some specific values which are equivalent
+        /// to a null reference offset.</summary>
+        /// <param name="candidate"></param>
+        /// <returns>true if the <paramref name="candidate"/> value matches one of the specific values. If so
+        /// caller must assume the offset doesn't point at a real entry in string table and the associated
+        /// string value must be considered a null reference.</returns>
         private static bool IsNullStringOffset(ushort candidate)
         {
             switch (candidate) {
@@ -43,8 +52,11 @@ namespace PdbReader
         [Flags()]
         public enum SectionFlags : ushort
         {
+            /// <summary>Segment is readable.</summary>
             Read = 0x0001,
+            /// <summary>Segment is writable.</summary>
             Write = 0x0002,
+            /// <summary>Segment is executable.</summary>
             Execute = 0x0004,
             /// <summary>Descriptor describes a 32-bit linear address.</summary>
             AddressIs32Bit = 0x0008,
@@ -59,6 +71,7 @@ namespace PdbReader
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct _SectionMapEntry
         {
+            // Various flag describing basic characteristics for this section.
             internal SectionFlags Flags;
             // Logical overlay number
             internal ushort Ovl;

@@ -21,8 +21,9 @@ namespace PdbReader
         private ushort? _omapToSourceMappingStreamIndex;
         private ushort? _originalSectionHeaderDataStreamIndex;
         private readonly Pdb _owner;
-        private Dictionary<uint, Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>> _perModuleSectionRanges;
+        private Dictionary<uint, Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>> _perModuleIndexSectionRanges;
         private ushort? _pdataStreamIndex;
+        /// <summary>A stream reader</summary>
         private readonly PdbStreamReader _reader;
         private ushort? _sectionHeaderDataStreamIndex;
         private ushort? _tokenToRIDMappingStreamIndex;
@@ -54,15 +55,18 @@ namespace PdbReader
         private uint FileInformationSubstreamOffset
             => SectionMapSubstreamOffset + _header.SectionMapSize;
 
+        /// <summary>Offset within the stream of the module information substream. Always at a fixed offset
+        /// immediately after the stream header.</summary>
         private uint ModuleInformationSubstreamOffset => DBIStreamHeader.Size;
 
-        private uint OptionalDebugSubstreamOffset
-            => EditAndContinueSubstreamOffset + _header.ECSubstreamSize;
+        private uint OptionalDebugSubstreamOffset => EditAndContinueSubstreamOffset + _header.ECSubstreamSize;
 
         internal Pdb Pdb => _owner;
 
         internal uint PublicSymbolsStreamIndex => _header.PublicStreamIndex;
 
+        /// <summary>Section contribution substream comes after module information substream, the size
+        /// of the later being available int the DBI stream header.</summary>
         private uint SectionContributionSubstreamOffset
             => ModuleInformationSubstreamOffset + _header.ModInfoSize;
 
@@ -92,21 +96,49 @@ namespace PdbReader
         internal void Dump(StreamWriter into, string prefix = "")
         {
             _header.Dump(into, prefix);
+            into.WriteLine($"{prefix}MODULES");
+            string subPrefix = prefix + "\t";
+            string sectionPrefix = subPrefix + "\t";
+            int moduleIndex = 0;
+
+            EnsureModulesAreLoaded();
+            EnsureSectionContributionsAreLoaded();
+            foreach (ModuleInfoRecord scannedModule in _modules) {
+                scannedModule.Dump(into, moduleIndex++, subPrefix);
+                int scannedModuleId = FindModuleId(scannedModule);
+                Dictionary<ushort, SortedMemoryRangeList<MemoryRange>> perSectionRanges =
+                    _perModuleIndexSectionRanges[Utils.SafeCastToUint16(Utils.SafeCastToUint32(scannedModuleId))];
+                foreach (ushort sectionId in perSectionRanges.Keys) {
+                    Console.WriteLine($"{sectionPrefix}Section {sectionId}");
+                    List<SectionContributionEntry>? sectionEntries =
+                        scannedModule.GetSectionContributionsById(sectionId);
+                    SortedMemoryRangeList<MemoryRange> ranges = perSectionRanges[sectionId];
+                    foreach (MemoryRange range in ranges.Keys) {
+                        Console.WriteLine($"{sectionPrefix}\t0x{range._startOffset:X8} - 0x{range._endOffset:X8}");
+                    }
+                }
+            }
+            //foreach (uint moduleId in _perModuleIndexSectionRanges.Keys) {
+            //    ModuleInfoRecord? module = FindModuleById(moduleId);
+            //    if (null == module) {
+            //        throw new BugException($"No module found having id {moduleId}");
+            //    }
+            //    Console.WriteLine($"Module {moduleId} : {(module.ModuleName ?? "UNNAMED")}");
+            //}
             throw new NotImplementedException();
             return;
         }
 
-        /// <summary>Make sure modules definition - as well as associated sections - are
-        /// loaded, i.e. <see cref="_modules"/> and <see cref="_modulesPerIndex"/> members
-        /// are properly initialized and populated.</summary>
+        /// <summary>Make sure modules definition - as well as associated sections - are loaded,
+        /// i.e. <see cref="_modules"/> and <see cref="_modulesPerIndex"/> members are properly initialized
+        /// and populated.</summary>
         public void EnsureModulesAreLoaded()
         {
+            if (null != _modules) {
+                return;
+            }
             try {
-                if (null != _modules) {
-                    return;
-                }
                 _modules = new List<ModuleInfoRecord>();
-
                 // Set stream position at the begining of the module information substream.
                 uint newOffset = ModuleInformationSubstreamOffset;
                 _reader.Offset = newOffset;
@@ -114,20 +146,24 @@ namespace PdbReader
                 uint totalSize = _header.ModInfoSize;
                 uint endOffsetExcluded = _reader.Offset + totalSize;
                 int moduleIndex = 0;
-                Console.WriteLine("MODULES ======================");
+#if DEBUG
+                Console.WriteLine("[*] Loading modules");
+#endif
                 // Read each record in turn.
                 for (; _reader.Offset < endOffsetExcluded; moduleIndex++) {
-                    ModuleInfoRecord scannedModule = ModuleInfoRecord.Create(_reader);
-#if DEBUG
-                    scannedModule.Dump(moduleIndex, string.Empty);
+                    ModuleInfoRecord scannedModule = ModuleInfoRecord.Create(_reader,
+                        Utils.SafeCastToUint32(moduleIndex));
                     if (ushort.MaxValue != scannedModule.SymbolStreamIndex) {
                         try { new PdbStreamReader(_owner, scannedModule.SymbolStreamIndex); }
                         catch {
-                            Console.WriteLine(
-                                $"WARN : Invalid symbol stream index {scannedModule.SymbolStreamIndex} on module {moduleIndex}");
+                            string warningMessage =
+                                $"WARN : Invalid symbol stream index {scannedModule.SymbolStreamIndex} on module {moduleIndex}";
+                            if (_owner.StrictChecksEnabled) {
+                                throw new PDBFormatException(warningMessage);
+                            }
+                            Console.WriteLine(warningMessage);
                         }
                     }
-#endif
                     _modules.Add(scannedModule);
 #if DEBUG
                     continue;
@@ -143,6 +179,76 @@ namespace PdbReader
             return;
         }
 
+        /// <summary>Ensure the section contribution substream is loaded which begins at offset 0
+        /// immediately after the module info substream.</summary>
+        /// <exception cref="BugException"></exception>
+        private void EnsureSectionContributionsAreLoaded()
+        {
+            // Required because we will have to search for modules while creating section contributions.
+            EnsureModulesAreLoaded();
+            if (null != _perModuleIndexSectionRanges) {
+                return;
+            }
+            Console.WriteLine("[*] Loading section contributions.");
+            // Set stream position at the begining of the section contribution substream.
+            uint newOffset = SectionContributionSubstreamOffset;
+            _reader.Offset = newOffset;
+            uint totalSize = _header.SectionContributionSize;
+            uint endOffsetExcluded = _reader.Offset + totalSize;
+
+            SectionContributionSubstreamVersion version =
+                (SectionContributionSubstreamVersion)_reader.ReadUInt32();
+            if (_owner.StrictChecksEnabled) {
+                switch(version) {
+                    case SectionContributionSubstreamVersion.Ver60:
+                    case SectionContributionSubstreamVersion.V2:
+                        break;
+                    default:
+                        throw new PDBFormatException($"Unknown section contribution version {version}.");
+                }
+            }
+            // Read each record in turn.
+            uint contributionIndex = 0;
+            _perModuleIndexSectionRanges =
+                new Dictionary<uint, Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>>();
+            for (; _reader.Offset < endOffsetExcluded; contributionIndex++) {
+#if DEBUG
+                // For debugging purpose. This variable is not used anywhere.
+                uint globalOffset = _reader.GetGlobalOffset().Value;
+#endif
+                SectionContributionEntry entry = SectionContributionEntry.Create(this, _reader, version);
+#if DEBUG
+                SectionMapEntry mappedSection = entry.GetSection();
+#endif
+                Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>? moduleRanges;
+                if (!_perModuleIndexSectionRanges.TryGetValue(entry.ModuleIndex, out moduleRanges)) {
+                    moduleRanges = new Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>();
+                    _perModuleIndexSectionRanges.Add(entry.ModuleIndex, moduleRanges);
+                }
+                if (null == moduleRanges) {
+                    throw new BugException($"No section range found matching module index {entry.ModuleIndex}.");
+                }
+                ModuleInfoRecord? contributionModule = _FindModuleByIdUnsafe(entry.ModuleIndex);
+#if DEBUG
+                if (null == contributionModule) {
+                    throw new BugException($"No module found having index {entry.ModuleIndex}");
+                }
+#endif
+                SortedMemoryRangeList<MemoryRange>? ranges;
+                if (!moduleRanges.TryGetValue(entry.SectionId, out ranges)) {
+                    ranges = new SortedMemoryRangeList<MemoryRange>();
+                    moduleRanges.Add(entry.SectionId, ranges);
+                }
+                MemoryRange thisRange = new MemoryRange(entry.Offset, (entry.Offset + entry.Size - 1));
+                // Insert in sorted order.
+                ranges.Add(thisRange, thisRange);
+#if DEBUG
+                continue;
+#endif
+            }
+            return;
+        }
+        
         public void EnsureSectionMappingIsLoaded()
         {
             if (null == _modules) {
@@ -169,88 +275,6 @@ namespace PdbReader
             return;
         }
 
-        private void EnsureSectionContributionsAreLoaded()
-        {
-            EnsureModulesAreLoaded();
-            if (null != _perModuleSectionRanges) {
-                return;
-            }
-            Console.WriteLine("SECTIONS ======================");
-            // Set stream position at the begining of the section contribution substream.
-            uint newOffset = SectionContributionSubstreamOffset;
-            _reader.Offset = newOffset;
-
-            SectionContributionSubstreamVersion version =
-                (SectionContributionSubstreamVersion)_reader.ReadUInt32();
-            uint totalSize = _header.SectionContributionSize;
-            uint endOffsetExcluded = _reader.Offset + totalSize;
-            // Read each record in turn.
-            uint contributionIndex = 0;
-            _perModuleSectionRanges =
-                new Dictionary<uint, Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>>();
-            uint totalRanges = 0;
-            for (; _reader.Offset < endOffsetExcluded; contributionIndex++) {
-#if DEBUG
-                uint globalOffset = _reader.GetGlobalOffset().Value;
-#endif
-                totalRanges++;
-                SectionContributionEntry entry = SectionContributionEntry.Create(this, _reader);
-#if DEBUG
-                SectionMapEntry mappedSection = entry.GetSection();
-#endif
-                Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>? moduleRanges;
-                if (!_perModuleSectionRanges.TryGetValue(entry.ModuleIndex, out moduleRanges)) {
-                    moduleRanges = new Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>();
-                    _perModuleSectionRanges.Add(entry.ModuleIndex, moduleRanges);
-                }
-                if (null == moduleRanges) {
-                    throw new BugException();
-                }
-                ModuleInfoRecord? contributionModule = _FindModuleByIdUnsafe(entry.ModuleIndex);
-#if DEBUG
-                if (null == contributionModule) {
-                    throw new BugException();
-                }
-#endif
-                SortedMemoryRangeList<MemoryRange>? ranges;
-                if (!moduleRanges.TryGetValue(entry.Section, out ranges)) {
-                    ranges = new SortedMemoryRangeList<MemoryRange>();
-                    moduleRanges.Add(entry.Section, ranges);
-                }
-                MemoryRange thisRange =
-                    new MemoryRange(entry.Offset, (entry.Offset + entry.Size - 1));
-                // Insert in sorted order.
-                ranges.Add(thisRange, thisRange);
-#if DEBUG
-                continue;
-#endif
-            }
-#if DEBUG
-            foreach (uint moduleId in _perModuleSectionRanges.Keys) {
-                ModuleInfoRecord? module = FindModuleById(moduleId);
-                if (null == module) {
-                    throw new BugException($"No module having id {moduleId}");
-                }
-                Console.WriteLine(
-                    $"Module {moduleId} : {(module.ModuleName ?? "UNNAMED")}");
-                Dictionary<ushort, SortedMemoryRangeList<MemoryRange>> perSectionRanges =
-                    _perModuleSectionRanges[moduleId];
-                foreach (ushort sectionId in perSectionRanges.Keys) {
-                    Console.WriteLine($"\tSection {sectionId}");
-                    List<SectionContributionEntry>? sectionEntries =
-                        module.GetSectionContributionsById(sectionId);
-                    SortedMemoryRangeList<MemoryRange> ranges =
-                        perSectionRanges[sectionId];
-                    foreach(MemoryRange range in ranges.Keys) {
-                        Console.WriteLine(
-                            $"\t\t0x{range._startOffset:X8} - 0x{range._endOffset:X8}");
-                    }
-                }
-            }
-#endif
-            return;
-        }
-
         internal ModuleInfoRecord? FindModuleById(uint moduleIdentifier)
         {
             EnsureModulesAreLoaded();
@@ -259,9 +283,27 @@ namespace PdbReader
 
         internal ModuleInfoRecord? FindModuleByRVA(uint moduleIndex)
         {
+            EnsureModulesAreLoaded();
+            EnsureSectionContributionsAreLoaded();
+            foreach (ModuleInfoRecord candidate in _modules) {
+            }
+            // return _FindModuleByRVAUnsafe(moduleIndex);
             throw new NotImplementedException();
-            //EnsureModulesAreLoaded();
-            //return _FindModuleByRVAUnsafe(moduleIndex);
+        }
+
+        /// <summary>Find index of given candidate module.</summary>
+        /// <param name="candidate"></param>
+        /// <returns></returns>
+        /// <exception cref="PDBFormatException"></exception>
+        internal int FindModuleId(ModuleInfoRecord candidate)
+        {
+            int modulesCount = _modules.Count;
+            for (int result = 0; result < modulesCount; result++) {
+                if (object.ReferenceEquals(_modules[result], candidate)) {
+                    return result;
+                }
+            }
+            throw new PDBFormatException($"Module {candidate.ModuleName} doesn't match any registered module.");
         }
 
         /// <summary></summary>
@@ -279,8 +321,7 @@ namespace PdbReader
             return _modules[trueIndex];
         }
 
-        internal SectionContributionEntry? FindSectionContribution(
-            uint relativeVirtualAddress)
+        internal SectionContributionEntry? FindSectionContribution(uint relativeVirtualAddress)
         {
             EnsureSectionContributionsAreLoaded();
 

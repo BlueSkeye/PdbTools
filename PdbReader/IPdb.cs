@@ -26,15 +26,13 @@ namespace PdbReader
         ModuleInfoRecord? FindModuleById(uint identifier);
 
         /// <summary>Retrieve definition of the module within which the RVA is located.</summary>
-        /// <param name="relativeVirtualAddress">The relative virtual address to be
-        /// searched.</param>
-        /// <returns>The module definition or a null reference if no such module could be
-        /// found.</returns>
+        /// <param name="relativeVirtualAddress">The relative virtual address to be searched.</param>
+        /// <returns>The module definition or a null reference if no such module could be found.</returns>
         ModuleInfoRecord? FindModuleByRVA(uint relativeVirtualAddress);
 
         /// <summary></summary>
-        /// <param name="relativeVirtualAddress">RVA of the item which section contribution is to
-        /// be retrieved.</param>
+        /// <param name="relativeVirtualAddress">RVA of the item which section contribution is to be
+        /// retrieved.</param>
         /// <returns></returns>
         SectionContributionEntry? FindSectionContribution(uint relativeVirtualAddress);
 
@@ -47,8 +45,8 @@ namespace PdbReader
         /// <summary>Retrieve a mapped section by its index.</summary>
         /// <param name="index">Index of the searched mapped section.</param>
         /// <returns>The section descriptor.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">The index value doesn't
-        /// match any mapped section index.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">The index value doesn't match any mapped section
+        /// index.</exception>
         SectionMapEntry GetSection(uint index);
 
         /// <summary>Initialize symbols map.</summary>

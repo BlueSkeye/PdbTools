@@ -2,6 +2,7 @@
 
 namespace PdbReader
 {
+    /// <remarks>See https://llvm.org/docs/PDB/DbiStream.html#id6</remarks>
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     internal struct SectionMapHeader
     {

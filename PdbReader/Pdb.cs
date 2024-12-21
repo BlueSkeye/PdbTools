@@ -252,7 +252,8 @@ namespace PdbReader
             }
             else {
                 DebugInformationStream dbiStream = new DebugInformationStream(this);
-                dbiStream.Dump(writer);
+                try { dbiStream.Dump(writer); }
+                finally { writer.Flush(); }
             }
             return;
         }
@@ -353,7 +354,7 @@ namespace PdbReader
         public List<string> GetModuleFiles(uint moduleIndex)
         {
             List<string> result = new List<string>();
-            ModuleInfoRecord? module = _debugInfoStream.FindModuleByRVA(moduleIndex);
+            ModuleInfoRecord? module = _debugInfoStream.FindModuleById(moduleIndex);
 
             if (null == module) {
                 throw new ArgumentException($"Invalid module index #{moduleIndex}");

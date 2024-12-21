@@ -5,6 +5,8 @@ using PdbReader.Microsoft.CodeView;
 
 namespace PdbReader
 {
+    /// <summary>Each instance of this class allows for reading a specific stream as stated by its index
+    /// in the <see cref="Pdb"/> instance it is bound to.</summary>
     internal class PdbStreamReader
     {
         internal delegate T ReadDelegate<T>();
@@ -21,7 +23,9 @@ namespace PdbReader
         /// <summary>Index within current block of first unread byte.</summary>
         private uint _currentBlockOffset;
         private bool _endOfStreamReached = false;
+        /// <summary>The <see cref="Pdb"/> instance the stream is bound to.</summary>
         private readonly Pdb _pdb;
+        /// <summary>Total length of the underlying stream.</summary>
         private readonly uint _streamSize;
 
         internal PdbStreamReader(Pdb owner, uint streamIndex)
@@ -84,6 +88,15 @@ namespace PdbReader
                 % boundarySize;
         }
 
+        internal PdbStreamReader EnsureAlignment(uint modulo)
+        {
+            uint delta = (this.Offset % modulo);
+            if (0 < delta) {
+                this.Offset += (modulo - delta);
+            }
+            return this;
+        }
+
         internal IStreamGlobalOffset GetGlobalOffset(bool ensureAtLeastOneAvailableByte = false)
         {
             return new GlobalOffset(this, _GetGlobalOffset(ensureAtLeastOneAvailableByte));
@@ -96,7 +109,7 @@ namespace PdbReader
         /// <param name="ensureAtLeastOneAvailableByte"></param>
         /// <returns></returns>
         /// <exception cref="BugException"></exception>
-        private uint _GetGlobalOffset(bool ensureAtLeastOneAvailableByte = false)
+        internal uint _GetGlobalOffset(bool ensureAtLeastOneAvailableByte = false)
         {
             // Account for the flag parameter prior to computing global offset.
             if (ensureAtLeastOneAvailableByte && (0 >= RemainingBlockBytes)) {
@@ -487,6 +500,17 @@ namespace PdbReader
                 }
             }
             return (ulong)_SlowRead(sizeof(ulong), remainingBlockBytes);
+        }
+
+        /// <summary>From time to time, we need to skip some null bytes in the input stream.</summary>
+        /// <returns></returns>
+        internal PdbStreamReader SkipNullBytes()
+        {
+            // Some records have trailing NULL bytes before names. Skip them.
+            while (0 == this.PeekByte()) { 
+                this.ReadByte();
+            }
+            return this;
         }
 
         private ulong _SlowRead(int unreadBytes, uint remainingBlockBytes)

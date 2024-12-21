@@ -249,11 +249,13 @@ namespace PdbDumper
                         return false;
                     }
                     _outputFile = new FileInfo(args[2]);
+#if !DEBUG
                     if (_outputFile.Exists) {
                         Console.WriteLine(
                             $"Output file {_outputFile.FullName} already exist.");
                         return false;
                     }
+#endif
                     _verb = Verb.DBIDump;
                     return true;
                 case "-dir":
