@@ -5,20 +5,22 @@ using PdbReader.Microsoft.CodeView;
 
 namespace PdbReader
 {
-    /// <summary>Each instance of this class allows for reading a specific stream as stated by its index
-    /// in the <see cref="Pdb"/> instance it is bound to.</summary>
+    /// <summary>Each instance of this class is bound to a constuctor initiated stream referenced by its id.
+    /// The class allows for reading from this stream. Whenever an offset is used as a parameter, this offset
+    /// is relative to the first byte of the stream - not an absolutre PDB file offset.</summary>
     internal class PdbStreamReader
     {
         internal delegate T ReadDelegate<T>();
 
+        /// <summary>A stream is made up of blocks. This is the list of block indexes making up this stream.
+        /// Order is significant. Initialized at construction time.</summary>
         private readonly uint[] _blocks;
+        /// <summary>Block size as initialized from the PDB file super block at construction time.</summary>
         private readonly uint _blockSize;
         /// <summary>Index within <see cref="_blocks"/> of current block.
-        /// WARNING : Never set this field value. Use CurrentBlockIndex setter instead.
-        /// </summary>
+        /// WARNING : Never set this field value. Use CurrentBlockIndex setter instead.</summary>
         private int _currentBlockIndex;
-        /// <summary>For optimization purpose, always equal to _blocks[_currentBlockIndex]
-        /// </summary>
+        /// <summary>For optimization purpose, always equal to _blocks[_currentBlockIndex]</summary>
         private uint _currentBlockNumber;
         /// <summary>Index within current block of first unread byte.</summary>
         private uint _currentBlockOffset;
@@ -35,6 +37,18 @@ namespace PdbReader
             _blocks = owner.GetStreamMap(streamIndex, out _streamSize);
             _blockSize = _pdb.SuperBlock.BlockSize;
             SetPosition(0, 0);
+        }
+
+        /// <summary>For debugging purpose. Retrieve the current absolute position in the underlying PDB
+        /// file.</summary>
+        internal uint AbsolutePdbFilePosition
+        {
+            get
+            {
+                uint currentBlockNumber = _blocks[_currentBlockIndex];
+                uint result = (currentBlockNumber * _blockSize) + _currentBlockOffset;
+                return result;
+            }
         }
 
         /// <summary>Returns the current offset within the stream this reader is bound to.

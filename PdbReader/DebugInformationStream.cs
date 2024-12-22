@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
 using PdbReader.Microsoft;
 
 namespace PdbReader
@@ -15,13 +16,13 @@ namespace PdbReader
         private ushort? _fixupDataStreamIndex;
         private ushort? _fpoDataStreamIndex;
         private List<SectionMapEntry> _mappedSections;
-        private List<ModuleInfoRecord> _modules;
+        private Dictionary<uint, ModuleInfoRecord> _modulesById;
         private ushort? _newFPODataStreamIndex;
         private ushort? _omapFromSourceMappingStreamIndex;
         private ushort? _omapToSourceMappingStreamIndex;
         private ushort? _originalSectionHeaderDataStreamIndex;
         private readonly Pdb _owner;
-        private Dictionary<uint, Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>> _perModuleIndexSectionRanges;
+        private SortedList<uint, Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>> _perModuleIndexSectionRanges;
         private ushort? _pdataStreamIndex;
         /// <summary>A stream reader</summary>
         private readonly PdbStreamReader _reader;
@@ -103,11 +104,19 @@ namespace PdbReader
 
             EnsureModulesAreLoaded();
             EnsureSectionContributionsAreLoaded();
-            foreach (ModuleInfoRecord scannedModule in _modules) {
+            EnsureSectionMappingIsLoaded();
+            EnsureFileMappingAreLoaded();
+            foreach (ModuleInfoRecord scannedModule in _modulesById.Values) {
                 scannedModule.Dump(into, moduleIndex++, subPrefix);
-                int scannedModuleId = FindModuleId(scannedModule);
-                Dictionary<ushort, SortedMemoryRangeList<MemoryRange>> perSectionRanges =
-                    _perModuleIndexSectionRanges[Utils.SafeCastToUint16(Utils.SafeCastToUint32(scannedModuleId))];
+                Console.WriteLine($"{prefix}Module #{scannedModule.Index}.");
+                uint scannedModuleId = scannedModule.Index;
+                Dictionary<ushort, SortedMemoryRangeList<MemoryRange>> perSectionRanges;
+                if (!_perModuleIndexSectionRanges.TryGetValue(Utils.SafeCastToUint32(scannedModuleId),
+                    out perSectionRanges))
+                {
+                    Console.WriteLine($"{sectionPrefix}No contribution found for this module.");
+                    continue;
+                }
                 foreach (ushort sectionId in perSectionRanges.Keys) {
                     Console.WriteLine($"{sectionPrefix}Section {sectionId}");
                     List<SectionContributionEntry>? sectionEntries =
@@ -129,16 +138,74 @@ namespace PdbReader
             return;
         }
 
+        /// <summary>Make sure file info substream is loaded.</summary>
+        public void EnsureFileMappingAreLoaded()
+        {
+            // Set stream position at the begining of the file info substream.
+            uint newOffset = FileInformationSubstreamOffset;
+            _reader.Offset = newOffset;
+
+            // The number of modules for which source file information is contained within this substream.
+            // Should match the corresponding value from the DBI header.
+            ushort modulesCount = _reader.ReadUInt16();
+            // In theory this is supposed to contain the number of source files for which this substream
+            // contains information. But that would present a problem in that the width of this field being
+            // 16-bits would prevent one from having more than 64K source files in a program. In early
+            // versions of the file format, this seems to have been the case. In order to support more than
+            // this, this field of the is simply ignored, and computed dynamically by summing up the values
+            // of the ModFileCounts array. In short, this value should be ignored.
+            ushort sourceFilesCount = _reader.ReadUInt16();
+
+            // This array is present, but does not appear to be useful.
+            ushort[] moduleIndices = new ushort[modulesCount];
+            for (int index = 0; index < modulesCount; index++) {
+                moduleIndices[index] = _reader.ReadUInt16();
+            }
+            // An array of NumModules integers, each one containing the number of source files which
+            // contribute to the module at the specified index. While each individual module is limited to
+            // 64K contributing source files, the union of all modules’ source files may be greater than 64K.
+            // The real number of source files is thus computed by summing this array. Note that summing this
+            // array does not give the number of unique source files, only the total number of source file
+            // contributions to modules.
+            ushort[] moduleFileCounts = new ushort[modulesCount];
+            uint realSourceFileCount = 0;
+            for (int index = 0; index < modulesCount; index++) {
+                moduleFileCounts[index] = _reader.ReadUInt16();
+                realSourceFileCount += moduleFileCounts[index];
+            }
+            // NOTE : we have two ushort arrays of the same size. Hence we are guaranteed to be aligned
+            // on a uint boundary. No padding is requesterd.
+
+            // An array of NumSourceFiles integers (where NumSourceFiles here refers to the 32-bit value
+            // obtained from summing ModFileCountArray), where each integer is an offset into NamesBuffer
+            // pointing to a null terminated string.
+            uint[] fileNameOffsets = new uint[Utils.SafeCastToInt32(realSourceFileCount)];
+            for (int index = 0; index < fileNameOffsets.Length; index++) {
+                fileNameOffsets[index] = _reader.ReadUInt32();
+            }
+            uint nameBufferStartOffset = _reader.Offset;
+            // An array of null terminated strings containing the actual source file names.
+            List<string> namesBuffer = new List<string>();
+            for (int index = 0; index < fileNameOffsets.Length; index++) {
+                _reader.Offset = nameBufferStartOffset + fileNameOffsets[index];
+                uint maxLength = uint.MaxValue;
+                string filename = _reader.ReadNTBString(ref maxLength);
+                namesBuffer.Add(filename);
+            }
+            throw new NotImplementedException();
+            return;
+        }
+
         /// <summary>Make sure modules definition - as well as associated sections - are loaded,
-        /// i.e. <see cref="_modules"/> and <see cref="_modulesPerIndex"/> members are properly initialized
+        /// i.e. <see cref="_modulesById"/> and <see cref="_modulesPerIndex"/> members are properly initialized
         /// and populated.</summary>
         public void EnsureModulesAreLoaded()
         {
-            if (null != _modules) {
+            if (null != _modulesById) {
                 return;
             }
             try {
-                _modules = new List<ModuleInfoRecord>();
+                _modulesById = new Dictionary<uint, ModuleInfoRecord>();
                 // Set stream position at the begining of the module information substream.
                 uint newOffset = ModuleInformationSubstreamOffset;
                 _reader.Offset = newOffset;
@@ -151,8 +218,12 @@ namespace PdbReader
 #endif
                 // Read each record in turn.
                 for (; _reader.Offset < endOffsetExcluded; moduleIndex++) {
+                    if (2 <= moduleIndex) {
+                        int i = 1;
+                    }
                     ModuleInfoRecord scannedModule = ModuleInfoRecord.Create(_reader,
                         Utils.SafeCastToUint32(moduleIndex));
+                    // scannedModule.Dump(Console.Out, moduleIndex, "");
                     if (ushort.MaxValue != scannedModule.SymbolStreamIndex) {
                         try { new PdbStreamReader(_owner, scannedModule.SymbolStreamIndex); }
                         catch {
@@ -164,7 +235,7 @@ namespace PdbReader
                             Console.WriteLine(warningMessage);
                         }
                     }
-                    _modules.Add(scannedModule);
+                    _modulesById.Add(scannedModule.Index, scannedModule);
 #if DEBUG
                     continue;
 #endif
@@ -172,7 +243,12 @@ namespace PdbReader
             }
             finally {
 #if DEBUG
-                Console.WriteLine($"{_modules.Count} modules found.");
+                if (null == _modulesById) {
+                    Console.WriteLine("Module dictionary initialization failed.");
+                }
+                else {
+                    Console.WriteLine($"{_modulesById.Count} modules found.");
+                }
 #endif
                 EnsureSectionMappingIsLoaded();
             }
@@ -210,7 +286,7 @@ namespace PdbReader
             // Read each record in turn.
             uint contributionIndex = 0;
             _perModuleIndexSectionRanges =
-                new Dictionary<uint, Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>>();
+                new SortedList<uint, Dictionary<ushort, SortedMemoryRangeList<MemoryRange>>>();
             for (; _reader.Offset < endOffsetExcluded; contributionIndex++) {
 #if DEBUG
                 // For debugging purpose. This variable is not used anywhere.
@@ -251,7 +327,7 @@ namespace PdbReader
         
         public void EnsureSectionMappingIsLoaded()
         {
-            if (null == _modules) {
+            if (null == _modulesById) {
                 throw new BugException();
             }
             if (null != _mappedSections) {
@@ -285,25 +361,10 @@ namespace PdbReader
         {
             EnsureModulesAreLoaded();
             EnsureSectionContributionsAreLoaded();
-            foreach (ModuleInfoRecord candidate in _modules) {
+            foreach (ModuleInfoRecord candidate in _modulesById.Values) {
             }
             // return _FindModuleByRVAUnsafe(moduleIndex);
             throw new NotImplementedException();
-        }
-
-        /// <summary>Find index of given candidate module.</summary>
-        /// <param name="candidate"></param>
-        /// <returns></returns>
-        /// <exception cref="PDBFormatException"></exception>
-        internal int FindModuleId(ModuleInfoRecord candidate)
-        {
-            int modulesCount = _modules.Count;
-            for (int result = 0; result < modulesCount; result++) {
-                if (object.ReferenceEquals(_modules[result], candidate)) {
-                    return result;
-                }
-            }
-            throw new PDBFormatException($"Module {candidate.ModuleName} doesn't match any registered module.");
         }
 
         /// <summary></summary>
@@ -314,11 +375,9 @@ namespace PdbReader
         /// already loaded and no check is performed on this.</remarks>
         private ModuleInfoRecord? _FindModuleByIdUnsafe(uint index)
         {
-            int trueIndex = Utils.SafeCastToInt32(index);
-            if (_modules.Count <= index) {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
-            return _modules[trueIndex];
+            ModuleInfoRecord? result;
+            _modulesById.TryGetValue(index, out result);
+            return result;
         }
 
         internal SectionContributionEntry? FindSectionContribution(uint relativeVirtualAddress)
@@ -769,7 +828,7 @@ namespace PdbReader
                 if (null == other) {
                     throw new ArgumentNullException();
                 }
-                return (_endOffset < other._startOffset);
+                return (this._endOffset < other._startOffset);
             }
 
             private bool _IsSubRangeOf(MemoryRange other)
@@ -777,8 +836,8 @@ namespace PdbReader
                 if (null == other) {
                     throw new ArgumentNullException();
                 }
-                return (_startOffset >= other._startOffset)
-                    && (_endOffset <= other._endOffset);
+                return (this._startOffset >= other._startOffset)
+                    && (this._endOffset <= other._endOffset);
             }
 
             internal bool Overlap(MemoryRange other)
@@ -786,7 +845,7 @@ namespace PdbReader
                 return _Overlap(other, true);
             }
 
-            private bool _Overlap(MemoryRange other, bool crossChek)
+            private bool _Overlap(MemoryRange other, bool crossCheck)
             {
                 if (null == other) {
                     throw new ArgumentNullException();
@@ -798,7 +857,7 @@ namespace PdbReader
                 {
                     return false;
                 }
-                if (crossChek) {
+                if (crossCheck) {
                     if (other._Overlap(this, false)) {
                         throw new BugException();
                     }

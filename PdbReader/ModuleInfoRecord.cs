@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-using System.Text;
 
 namespace PdbReader
 {
@@ -45,8 +44,8 @@ namespace PdbReader
             // Read both strings.
             ModuleName = reader.ReadNTBString(ref maxLength);
             ObjectFileName = reader.ReadNTBString(ref maxLength);
-            // WARNING : Due to variable string length, an additional NULL byte may exist that we must skip.
-            reader = reader.EnsureAlignment(sizeof(ushort));
+            // WARNING : Due to variable string length we must enforce DWORD alignment.
+            reader = reader.EnsureAlignment(sizeof(uint));
 
             // Extract some key module info key values.
             Offset = _data.SectionContribution.Offset;
@@ -83,9 +82,10 @@ namespace PdbReader
             uint globalStartOffset = reader.GetGlobalOffset().Value;
             uint headerSize = _ModuleInfoRecord.Size;
 #endif
-            return new ModuleInfoRecord(reader) {
+            ModuleInfoRecord result = new ModuleInfoRecord(reader) {
                 Index = Utils.SafeCastToUint32(moduleIndex)
             };
+            return result;
         }
 
         internal void Dump(TextWriter into, int moduleIndex, string prefix)
@@ -96,8 +96,10 @@ namespace PdbReader
             into.WriteLine(
                 $"{subPrefix}stream {SymbolStreamIndex}, offset 0x{this.Offset:X8}, size 0x{this.Size:X8}");
             this._data.SectionContribution.Dump(into, subPrefix);
-            into.WriteLine($"{prefix}TSI #{_data.TSM}, module symbols #{_data.ModuleSymStream}:{_data.SymByteSize}:C11={_data.C11ByteSize}:C13={_data.C13ByteSize} bytes");
-            into.WriteLine($"{prefix}SFNI #{_data.SourceFileNameIndex}, PNI #{_data.PdbFilePathNameIndex}, {_data.SourceFileCount} files, Flags={_data.Flags}");
+            into.WriteLine(
+                $"{prefix}TSI #{_data.TSM}, module symbols #{_data.ModuleSymStream}:{_data.SymByteSize}:C11={_data.C11ByteSize}:C13={_data.C13ByteSize} bytes");
+            into.WriteLine(
+                $"{prefix}SFNI #{_data.SourceFileNameIndex}, PNI #{_data.PdbFilePathNameIndex}, {_data.SourceFileCount} files, Flags={_data.Flags}");
         }
 
         internal List<SectionContributionEntry>? GetSectionContributionsById(ushort identifier)
@@ -197,13 +199,12 @@ namespace PdbReader
             [Flags()]
             public enum _Flags : byte
             {
-                // ``true`` if this ModInfo has been written since reading the PDB.  This is
-                // likely used to support incremental linking, so that the linker can decide
-                // if it needs to commit changes to disk.
+                // ``true`` if this ModInfo has been written since reading the PDB. This is likely used to
+                // support incremental linking, so that the linker can decide if it needs to commit changes
+                // to disk.
                 Dirty = 0x0001,
-                // ``true`` if EC information is present for this module. EC is presumed to
-                // stand for "Edit & Continue", which LLVM does not support.  So this flag
-                // will always be be false.
+                // ``true`` if EC information is present for this module. EC is presumed to stand for
+                // "Edit & Continue", which LLVM does not support.  So this flag will always be be false.
                 EC = 0x0002,
             }
         }

@@ -13,10 +13,14 @@ namespace PdbReader
         private DebugInformationStream _debugInfoStream;
         /// <summary>An array of flags describing blocks that are known to be in use.</summary>
         private bool[] _knownInUseBlocks;
+        /// <summary>A memory mapping for the input PDB file.</summary>
         private MemoryMappedFile _mappedPdb;
+        /// <summary>A view encompassing the full content of the <see cref="_mappedPdb"/> file.</summary>
         private MemoryMappedViewAccessor _mappedPdbView;
         internal readonly FileInfo _pdbFile;
         private Dictionary<uint, string> _pooledStringByOffset;
+        /// <summary>The outermost list index is the stream index. The content is a list of block indexes
+        /// that make the given stream.</summary>
         private List<List<uint>> _streamDescriptors = new List<List<uint>>();
         private Dictionary<string, uint> _streamIndexByName;
         private uint[] _streamSizes;
@@ -46,10 +50,9 @@ namespace PdbReader
             _strictChecksEnabled = strictChecks;
             // Map the PDB file in memory.
             try {
-                _mappedPdb = MemoryMappedFile.CreateFromFile(_pdbFile.FullName,
-                    FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
-                _mappedPdbView = _mappedPdb.CreateViewAccessor(0, _pdbFile.Length,
+                _mappedPdb = MemoryMappedFile.CreateFromFile(_pdbFile.FullName, FileMode.Open, null, 0,
                     MemoryMappedFileAccess.Read);
+                _mappedPdbView = _mappedPdb.CreateViewAccessor(0, _pdbFile.Length, MemoryMappedFileAccess.Read);
             }
             catch (Exception ex) {
                 throw new PDBFormatException("Unable to map PDB file.", ex);
@@ -163,12 +166,15 @@ namespace PdbReader
                     continue;
                 }
                 if (_freeBlockMaps[index] == _knownInUseBlocks[index]) {
-                    throw new PDBFormatException(
-                        $"Non free block #{index} in map is not bound to any stream.");
+                    throw new PDBFormatException($"Non free block #{index} in map is not bound to any stream.");
                 }
             }
         }
 
+        /// <summary>Compute and return the total number of blocks within the <see cref="_mappedPdb"/> file,
+        /// based on the block size found in PDB super block.</summary>
+        /// <returns></returns>
+        /// <exception cref="PDBFormatException"></exception>
         private int ComputeBlocksCount()
         {
             int result = (int)(_mappedPdbView.Capacity / _superBlock.BlockSize);
@@ -375,11 +381,9 @@ namespace PdbReader
         /// <remarks>See <see cref="IPdb.GetSection(uint)"/></remarks>
         public SectionMapEntry GetSection(uint index) => _debugInfoStream.GetSection(index);
 
-        /// <summary>Returns an array of block indexes for the stream having the given
-        /// index.</summary>
+        /// <summary>Returns an array of block indexes for the stream having the given index.</summary>
         /// <param name="streamIndex"></param>
-        /// <param name="streamSize">On return this parameter is updated with the stream
-        /// size in bytes.</param>
+        /// <param name="streamSize">On return this parameter is updated with the stream size in bytes.</param>
         /// <returns></returns>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
         internal uint[] GetStreamMap(uint streamIndex, out uint streamSize)
@@ -620,6 +624,15 @@ namespace PdbReader
             return mapReader.BlocksList;
         }
 
+        /// <summary>Read <paramref name="length"/> bytes into <paramref name="into"/> buffer, starting
+        /// at <paramref name="offset"/> offset in <paramref name="into"/> buffer.
+        /// Bytes are read starting at <paramref name="position"/> position from <see cref="_mappedPdbView"/>.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="into"></param>
+        /// <param name="offset"></param>
+        /// <param name="length"></param>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
         internal void Read(uint position, byte[] into, uint offset, uint length)
         {
             if (int.MaxValue < offset) {
