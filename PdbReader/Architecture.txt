@@ -1,0 +1,87 @@
+﻿Introduction
+============
+A Program DataBase (PDB) file describes various aspects of a single PE file be it an executable,
+a dynamic load library, a driver ... Such a PE file is bulit by a linker that assemble one or more
+object file (.obj) and/or static libraries (.lib). At the same time, the linker produces the PDB
+file and may set a reference to it in the PE file which eases PDB retrieval from a central repository
+such as Microsoft symbol servers.
+Each objet file taken into account by the linker for PE building is considered a module in the PDB
+parlance. The PDB provides information about both these modules and symbols within them.
+
+PDB structure
+=============
+NOTE : Brackets surronded names are those classes that implement the concept desribed in the sentence
+they are embedded into.
+
+A PDB is a collection of streams, each of which is a collection of not necessarily adjacents fixed
+size blocks also called pages. At the very beginning of the PDB (block 0) is a fixed size header
+[MSFSuperBlock] from which to find the common block size. This block is read at [Pdb] instanciation
+time.
+
+Stream directory
+================
+This key structure is the one that allows for accessing streams. The total size of this directory can
+be found in [MSFSuperBlock.NumDirectoryBytes]. Using [MSFSuperBlock.BlockSize] we can infer how many
+blocks this directory uses : ceil(NumDirectoryBytes / BlockSize). [MSFSuperBlock.BlockMapAddr] is the
+block number where to find an array of indexes to blocks where the stream directory content is stored.
+The stream directory content provides the number of streams and for each of them the stream content size
+and the list of index of blocks they are made of.
+The directory content is read at [Pdb] creation time by [Pdb.LoadStreamDirectory].
+Later on, whenever a stream must be read, we will instanciate the [PdbStreamReader] class with a stream
+identifier. This class provides a way to seamlessly read integral types, structures as well as jumping
+to a specific position in the stream without having to bother with stream block mapping.
+
+Debug Info Stream (DBI)
+=======================
+This stream is read at [Pdb] creation time.
+
+Public Symbol Stream (PSS)
+==========================
+This stream contains records for each public (exported) symbol. The index of this stream can be found in
+[DBIStreamHeader.PublicStreamIndex]. Access to this stream content is implemented in [PublicSymbolStream].
+A PdbReader client must first invoke [Pdb.InitializeSymbolsMap] that will take care of loading the PSS.
+
+Free Map Page (FMP)
+===================
+This mechanism is of interest when updating the PDB content, or for consistency checking. The PdbReader
+doesn't implement update capabilities. However it provide consistency checking whenever the 
+FreeBlocksConsistencyDebug debug flag from [Pdb.TraceFlags] is enabled. This section can be skiped by
+peculiar readers.
+A page is either in use by a stream or free. This is reflected in a so called Free Page Map (FMP)
+where each page is depicted by a 0 (free) or 1 (in use) page. For file update consistency there is
+actually two such FMP (FMP1 and FMP2) one of which is actice at each time index of the first block of
+which can be found in the [MSFSuperBlock]. An FMP block can index at most 8 * blocksize pages thus several
+FMP blocks may be required for large enouch PDB files. A very simple rule seems to be applied to locate
+FMP blocks in every PDB we encounetered.
+FMP1 blocks are made of blocks 1, blocksize + 1, (2*blocksize) + 1 and do so on.
+FMP2 blocks are made of blocks 2, blocksize + 2, (2*blocksize) + 2 and do so on.
+First of all we should notice that this waste a couple of blocks because the first block of an FMP will
+index pages 1 to (8*blocksize) thus for a PDB file of exactly 8*blocksize pages a single FMP page would
+be enough. Despite this blocksize + 1, (2*blocksize) + 1, ... (7*blocksize) + 1 are still reseverd and
+used by the FMP, indexing pages that do not really exist.
+Secondly, the index of the in use FMP first block in [MSFSuperBlock] theoritically allows for any block
+number to be the first FMP block, not only block 1 for FMP1 or block 2 for FMP2. Nothing is known as to
+how an implementor should a) find the first block of the alternate FMP b) what is the block number of the
+next FMP block.
+
+References
+==========
+Codeview Symbol records https://llvm.org/docs/PDB/CodeViewSymbols.html
+Codeview Type records https://llvm.org/docs/PDB/CodeViewTypes.html
+Module Information Stream https://llvm.org/docs/PDB/ModiStream.html
+MSF file format https://llvm.org/docs/PDB/MsfFile.html
+PDB DBI - Debug Info Stream https://llvm.org/docs/PDB/DbiStream.html
+PDB File format https://llvm.org/docs/PDB/index.html
+PDB Global Symbol Stream (empty) https://llvm.org/docs/PDB/GlobalStream.html
+PDB Info Stream https://llvm.org/docs/PDB/PdbStream.html
+PDB Public Symbol Stream (empty) https://llvm.org/docs/PDB/PublicStream.html
+PDB Serialized hash table format https://llvm.org/docs/PDB/HashTable.html
+PDB TPI and IPI streams https://llvm.org/docs/PDB/TpiStream.html
+
+See also
+========
+llvm-pdbutil tool dump command
+https://llvm.org/docs/CommandGuide/llvm-pdbutil.html#cmdoption-llvm-pdbutil-dump-symbols
+Main source code : https://github.com/llvm-mirror/llvm/blob/master/tools/llvm-pdbutil/llvm-pdbutil.cpp
+
+

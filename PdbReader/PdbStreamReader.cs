@@ -1,7 +1,6 @@
-﻿using System.Runtime.InteropServices;
+﻿using PdbReader.Microsoft.CodeView;
+using System.Runtime.InteropServices;
 using System.Text;
-
-using PdbReader.Microsoft.CodeView;
 
 namespace PdbReader
 {
@@ -341,8 +340,7 @@ namespace PdbReader
             ReadArray(into, 0, into.Length, reader);
         }
 
-        internal void ReadArray<T>(T[] into, int startOffset, int length,
-            ReadDelegate<T> reader)
+        internal void ReadArray<T>(T[] into, int startOffset, int length, ReadDelegate<T> reader)
         {
             if (null == into) {
                 throw new ArgumentNullException(nameof(into));

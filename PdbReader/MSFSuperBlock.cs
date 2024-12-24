@@ -13,31 +13,28 @@ namespace PdbReader
         internal ulong Magic2; // Expected value 0x202B2B432F432074
         internal ulong Magic3; // Expected value 0x30302E372046534D
         internal ulong Magic4; // Expected value 0x00000053441A0A0D
-        /// <summary>The block size of the internal file system. Valid values are 512,
-        /// 1024, 2048, and 4096 bytes. Certain aspects of the MSF file layout vary
-        /// depending on the block sizes.</summary>
+        /// <summary>The block size of the internal file system. Valid values are 512, 1024, 2048, and
+        /// 4096 bytes. Certain aspects of the MSF file layout vary depending on the block sizes.</summary>
         internal uint BlockSize;
-        /// <summary>The index of a block within the file, at which begins a bitfield
-        /// representing the set of all blocks within the file which are “free” (i.e.
-        /// the data within that block is not used). See The Free Block Map for more
-        /// information. Important: FreeBlockMapBlock can only be 1 or 2!</summary>
+        /// <summary>The index of a block within the file, at which begins a bitfield representing the
+        /// set of all blocks within the file which are “free” (i.e. the data within that block is not used).
+        /// See The Free Block Map for more information. Important: FreeBlockMapBlock can only be 1 or 2!</summary>
         internal uint FreeBlockMapBlock;
-        /// <summary>The total number of blocks in the file. NumBlocks * BlockSize
-        /// should equal the size of the file on disk.</summary>
+        /// <summary>The total number of blocks in the file. NumBlocks * BlockSize should equal the size
+        /// of the file on disk.</summary>
         internal uint NumBlocks;
-        /// <summary>The size of the stream directory, in bytes. The stream directory
-        /// contains information about each stream’s size and the set of blocks that
-        /// it occupies. It will be described in more detail later.</summary>
+        /// <summary>The size of the stream directory, in bytes. The stream directory contains information
+        /// about each stream’s size and the set of blocks that it occupies. It will be described in more
+        /// detail later.</summary>
         internal uint NumDirectoryBytes;
         internal uint Unknown;
-        /// <summary>The index of a block within the MSF file. At this block is an
-        /// array of uint’s listing the blocks that the stream directory resides on.
-        /// For large MSF files, the stream directory (which describes the block layout
-        /// of each stream) may not fit entirely on a single block. As a result, this
-        /// extra layer of indirection is introduced, whereby this block contains the
-        /// list of blocks that the stream directory occupies, and the stream directory
-        /// itself can be stitched together accordingly. The number of uint’s in this
-        /// array is given by ceil(NumDirectoryBytes / BlockSize).</summary>
+        /// <summary>The index of a block within the MSF file. At this block is an array of uint’s listing
+        /// the blocks that the stream directory resides on. For large MSF files, the stream directory
+        /// (which describes the block layout of each stream) may not fit entirely on a single block. As
+        /// a result, this extra layer of indirection is introduced, whereby this block contains the list
+        /// of blocks that the stream directory occupies, and the stream directory itself can be stitched
+        /// together accordingly. The number of uint’s in this array is given by
+        /// ceil(NumDirectoryBytes / BlockSize).</summary>
         internal uint BlockMapAddr;
 
         internal PdbKind AssertSignatureType(bool throwOnUnknown = true)

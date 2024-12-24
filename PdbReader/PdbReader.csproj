@@ -93,9 +93,12 @@
     <Compile Include="SectionMapEntry.cs" />
     <Compile Include="SectionMapHeader.cs" />
     <Compile Include="StringPoolHeader.cs" />
-    <Compile Include="TypeIndexedStream.cs" />
+    <Compile Include="TPIStream.cs" />
     <Compile Include="..\SharedSource\BugException.cs" />
     <Compile Include="..\SharedSource\KnownDirectories.cs" />
+    <Compile Include="TypeRecords\ModifierRecord.cs" />
+    <Compile Include="TypeRecords\PointerRecord.cs" />
+    <Compile Include="TypeRecords\TypeRecordHeader.cs" />
     <Compile Include="Utils.cs" />
 
   </ItemGroup>

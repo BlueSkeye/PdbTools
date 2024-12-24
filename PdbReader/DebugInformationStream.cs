@@ -106,6 +106,8 @@ namespace PdbReader
             EnsureSectionContributionsAreLoaded();
             EnsureSectionMappingIsLoaded();
             EnsureFileMappingAreLoaded();
+            // TODO : Other substreams exist that we could consider loading :
+            // Type server map, EC, Optional debug header.
             foreach (ModuleInfoRecord scannedModule in _modulesById.Values) {
                 scannedModule.Dump(into, moduleIndex++, subPrefix);
                 Console.WriteLine($"{prefix}Module #{scannedModule.Index}.");
@@ -127,14 +129,6 @@ namespace PdbReader
                     }
                 }
             }
-            //foreach (uint moduleId in _perModuleIndexSectionRanges.Keys) {
-            //    ModuleInfoRecord? module = FindModuleById(moduleId);
-            //    if (null == module) {
-            //        throw new BugException($"No module found having id {moduleId}");
-            //    }
-            //    Console.WriteLine($"Module {moduleId} : {(module.ModuleName ?? "UNNAMED")}");
-            //}
-            throw new NotImplementedException();
             return;
         }
 
@@ -192,7 +186,6 @@ namespace PdbReader
                 string filename = _reader.ReadNTBString(ref maxLength);
                 namesBuffer.Add(filename);
             }
-            throw new NotImplementedException();
             return;
         }
 

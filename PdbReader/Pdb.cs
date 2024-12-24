@@ -10,7 +10,13 @@ namespace PdbReader
         /// empty.</summary>
         internal const string DebuggedPdbName = "";
         private const string StringPoolStreamName = "/names";
-        private DebugInformationStream _debugInfoStream;
+        /// <summary>This member is only valid for a short period of time during object initialization.
+        /// Moreover both the map and the count are not initialized unless strict checks areenabled.</summary>
+        private uint _blockMapBlocksCount = 0;
+        private DebugInformationStream _dbiStream;
+        /// <summary>This member is only valid for a short period of time during object initialization.
+        /// Moreover both the map and the count are not initialized unless strict checks areenabled.</summary>
+        private bool[]? _freeBlockMaps = null;
         /// <summary>An array of flags describing blocks that are known to be in use.</summary>
         private bool[] _knownInUseBlocks;
         /// <summary>A memory mapping for the input PDB file.</summary>
@@ -26,12 +32,8 @@ namespace PdbReader
         private uint[] _streamSizes;
         private bool _strictChecksEnabled;
         private readonly MSFSuperBlock _superBlock;
+        private TPIStream _tpiStream;
         private readonly TraceFlags _traceFlags;
-
-        /// <summary>These two members are only valid for a short period of time during object initialization.
-        /// Moreover both the map and the count are not initialized unless strict checks areenabled.</summary>
-        private uint _blockMapBlocksCount = 0;
-        private bool[]? _freeBlockMaps = null;
 
         /// <summary>Initialize a PDB reader by mapping the file and reading the superblock.</summary>
         /// <param name="target">Target PDB file to open.</param>
@@ -64,7 +66,7 @@ namespace PdbReader
             }
         }
 
-        public DebugInformationStream DebugInfoStream => _debugInfoStream ?? throw new BugException();
+        public DebugInformationStream DebugInfoStream => _dbiStream ?? throw new BugException();
 
         internal bool FullDecodingDebugEnabled => (0 != (_traceFlags & TraceFlags.FullDecodingDebug));
 
@@ -102,7 +104,7 @@ namespace PdbReader
 
         private void AssertDebugInformation()
         {
-            if (null == _debugInfoStream) {
+            if (null == _dbiStream) {
                 throw new BugException("DBI stream should have been instantiated.");
             }
             return;
@@ -221,8 +223,9 @@ namespace PdbReader
                 // result.CheckBlocksMappingConsistency(result._blockMapBlocksCount);
                 result._freeBlockMaps = null;
             }
-            result.LoadInfoStream();
-            result._debugInfoStream = new DebugInformationStream(result);
+            result.LoadPdbStream();
+            result._tpiStream = new TPIStream(result);
+            result._dbiStream = new DebugInformationStream(result);
             result.EnsureStringPoolBuffering();
             return result;
         }
@@ -298,8 +301,7 @@ namespace PdbReader
         private IEnumerable<object> EnumeratePublicSymbols()
         {
             PublicSymbolStream publicSymbolStream = new PublicSymbolStream(this,
-                Utils.SafeCastToUint16(_debugInfoStream.PublicSymbolsStreamIndex));
-            publicSymbolStream.Load();
+                Utils.SafeCastToUint16(_dbiStream.PublicSymbolsStreamIndex));
             throw new NotImplementedException();
         }
 
@@ -325,23 +327,23 @@ namespace PdbReader
         public ModuleInfoRecord? FindModuleById(uint moduleId)
         {
             AssertDebugInformation();
-            return _debugInfoStream.FindModuleById(moduleId);
+            return _dbiStream.FindModuleById(moduleId);
         }
 
         /// <remarks>See <see cref="IPdb.FindModuleByRVA(uint)"/></remarks>
         public ModuleInfoRecord? FindModuleByRVA(uint relativeVirtualAddress)
         {
             AssertDebugInformation();
-            return _debugInfoStream.FindModuleByRVA(relativeVirtualAddress);
+            return _dbiStream.FindModuleByRVA(relativeVirtualAddress);
         }
 
         /// <remarks>See <see cref="IPdb.FindSectionContribution(uint)"/></remarks>
         public SectionContributionEntry? FindSectionContribution(uint relativeVirtualAddress)
         {
-            if (null == _debugInfoStream) {
+            if (null == _dbiStream) {
                 throw new BugException("DBI stream should have been instantiated.");
             }
-            return _debugInfoStream.FindSectionContribution(relativeVirtualAddress);
+            return _dbiStream.FindSectionContribution(relativeVirtualAddress);
         }
         
         internal uint GetBlockOffset(uint blockNumber)
@@ -360,7 +362,7 @@ namespace PdbReader
         public List<string> GetModuleFiles(uint moduleIndex)
         {
             List<string> result = new List<string>();
-            ModuleInfoRecord? module = _debugInfoStream.FindModuleById(moduleIndex);
+            ModuleInfoRecord? module = _dbiStream.FindModuleById(moduleIndex);
 
             if (null == module) {
                 throw new ArgumentException($"Invalid module index #{moduleIndex}");
@@ -379,7 +381,7 @@ namespace PdbReader
         }
 
         /// <remarks>See <see cref="IPdb.GetSection(uint)"/></remarks>
-        public SectionMapEntry GetSection(uint index) => _debugInfoStream.GetSection(index);
+        public SectionMapEntry GetSection(uint index) => _dbiStream.GetSection(index);
 
         /// <summary>Returns an array of block indexes for the stream having the given index.</summary>
         /// <param name="streamIndex"></param>
@@ -527,7 +529,7 @@ namespace PdbReader
         }
 
         /// <summary>Load the PDB info stream.</summary>
-        private void LoadInfoStream()
+        private void LoadPdbStream()
         {
             // The PDB info stream is at fixed index 1.
             PdbStreamReader reader = new PdbStreamReader(this, 1);
@@ -558,8 +560,8 @@ namespace PdbReader
             return;
         }
 
-        /// <summary>Read the block map blocks and retrieve an array of block indexes to
-        /// be used by the stream directory.</summary>
+        /// <summary>Read the block map blocks and retrieve an array of block indexes to be used by the
+        /// stream directory.</summary>
         /// <returns>An array of block indexes used by the stream directory.</returns>
         /// <exception cref="BugException"></exception>
         private uint[] LoadStreamDirectory()
@@ -576,9 +578,9 @@ namespace PdbReader
                 uint streamBlocksCount = mapReader.ReadUInt32();
                 totalReadBytes += sizeof(uint);
                 _streamSizes[streamIndex] = streamBlocksCount;
-                // NOTE : Some streams such as stream #83 in vcruntime140d.amd64.pdb with hash
-                // value 4636DD42F408275AEE31944E871539941
-                // have been found to have uint.MaxValue for count. Assume this is an empty stream.
+                // NOTE : Some streams such as stream #83 in vcruntime140d.amd64.pdb with hash value
+                // 4636DD42F408275AEE31944E871539941 have been found to have uint.MaxValue for count.
+                // Assume this is an empty stream.
                 if ((0 == streamBlocksCount) || (uint.MaxValue == streamBlocksCount)) {
                     Console.WriteLine($"DBG : Stream #{streamIndex} is empty.");
                     // Make sure the count is registered as 0 even if uint.MaxValue was found.
