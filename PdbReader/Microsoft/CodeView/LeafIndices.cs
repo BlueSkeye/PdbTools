@@ -1,6 +1,7 @@
 ﻿
 namespace PdbReader.Microsoft.CodeView
 {
+    /// <remarks>Taken from microsoft-pdb/include/cvinfo.h/LEAF_ENUM_e</remarks>
     /// <summary>From CVINFO.H
     /// No leaf index can have a value of 0x0000. The leaf indices are separated into ranges
     /// depending upon the use of the type record.
@@ -19,7 +20,7 @@ namespace PdbReader.Microsoft.CodeView
     /// specified by the leaf index.
     /// The final range of leaf indices are used to force alignment of subfields within a
     /// complex type record.</summary>
-    public enum LEAF_ENUM_e : ushort
+    public enum LeafIndices : ushort
     {
         // leaf indices starting records but referenced from symbol records
         Modifier16Bits = 0x0001,
@@ -31,12 +32,12 @@ namespace PdbReader.Microsoft.CodeView
         Enum16Bits = 0x0007,
         Procedure16Bits = 0x0008,
         MFunction16Bits = 0x0009,
-        VirtualTableShape = 0x000a,
-        Cobol016Bits = 0x000b,
-        Cobol1 = 0x000c,
-        BArray16Bits = 0x000d,
-        Label = 0x000e,
-        Null = 0x000f,
+        VirtualTableShape = 0x000A,
+        Cobol016Bits = 0x000B,
+        Cobol1 = 0x000C,
+        BArray16Bits = 0x000D,
+        Label = 0x000E,
+        Null = 0x000F,
         NotTransacted = 0x0010,
         DimArray16Bits = 0x0011,
         VFPath16Bits = 0x0012,
@@ -75,9 +76,9 @@ namespace PdbReader.Microsoft.CodeView
         MethodList16Bits = 0x0207,
         DimensionCONU16Bits = 0x0208,
         DomensionCONLU16Bits = 0x0209,
-        DimensionVARU16Bits = 0x020a,
-        DimensionVARLU16Bits = 0x020b,
-        ReferenceSymbol = 0x020c,
+        DimensionVARU16Bits = 0x020A,
+        DimensionVARLU16Bits = 0x020B,
+        ReferenceSymbol = 0x020C,
 
         BClass16Bits = 0x0400,
         VBClass16Bits = 0x0401,
@@ -104,12 +105,12 @@ namespace PdbReader.Microsoft.CodeView
         EnumST = 0x1007,
         Procedure = 0x1008,
         MFunction = 0x1009,
-        Cobol0 = 0x100a,
-        Barray = 0x100b,
-        DimArrayST = 0x100c,
-        VFTPath = 0x100d,
-        PrecompST = 0x100e, // not referenced from symbol
-        OEM = 0x100f,   // oem definable type string
+        Cobol0 = 0x100A,
+        Barray = 0x100B,
+        DimArrayST = 0x100C,
+        VFTPath = 0x100D,
+        PrecompST = 0x100E, // not referenced from symbol
+        OEM = 0x100F,   // oem definable type string
         AliasST = 0x1010,   // alias (typedef) type
         OEM2 = 0x1011,  // oem definable type string
 
@@ -135,12 +136,12 @@ namespace PdbReader.Microsoft.CodeView
         MethodST = 0x1407,
         NestTypeST = 0x1408,
         VFunctionTAB = 0x1409,
-        FriendClass = 0x140a,
-        OneMethodST = 0x140b,
-        VFunctionOFF = 0x140c,
-        NestedTypeExST = 0x140d,
-        MemberModifyST = 0x140e,
-        ManagedST = 0x140f,
+        FriendClass = 0x140A,
+        OneMethodST = 0x140B,
+        VFunctionOFF = 0x140C,
+        NestedTypeExST = 0x140D,
+        MemberModifyST = 0x140E,
+        ManagedST = 0x140F,
 
         TypeServer = 0x1501,
         Enumerate = 0x1502,
@@ -151,12 +152,12 @@ namespace PdbReader.Microsoft.CodeView
         Enum = 0x1507,
         DimArray = 0x1508,
         Precompilation = 0x1509, // not referenced from symbol
-        Alias = 0x150a,       // alias (typedef) type
-        DefaultArgument = 0x150b,
-        FriendFunction = 0x150c,
-        Member = 0x150d,
-        STMember = 0x150e,
-        Method = 0x150f,
+        Alias = 0x150A, // alias (typedef) type
+        DefaultArgument = 0x150B,
+        FriendFunction = 0x150C,
+        Member = 0x150D,
+        STMember = 0x150E,
+        Method = 0x150F,
         NestedType = 0x1510,
         OneMethod = 0x1511,
         NestedTypeEx = 0x1512,
@@ -167,10 +168,10 @@ namespace PdbReader.Microsoft.CodeView
         HLSL = 0x1517,
         ModifierEx = 0x1518,
         Interface = 0x1519,
-        BInterface = 0x151a,
-        Vector = 0x151b,
-        Matrix = 0x151c,
-        VirtualFunctionTable = 0x151d, // a virtual function table
+        BInterface = 0x151A,
+        Vector = 0x151B,
+        Matrix = 0x151C,
+        VirtualFunctionTable = 0x151D, // a virtual function table
 
         FunctionIdentifier = 0x1601, // global func ID
         MFunctionIdentifier = 0x1602, // member func ID
@@ -190,22 +191,21 @@ namespace PdbReader.Microsoft.CodeView
         Real80Bits = 0x8007,
         Real128Bits = 0x8008,
         LongInteger = 0x8009,
-        UnsignedLongInteger = 0x800a,
-        Real48Bits = 0x800b,
-        Complex32Bits = 0x800c,
-        Complex64Bits = 0x800d,
-        Complex80Bits = 0x800e,
-        Complex128Bits = 0x800f,
+        UnsignedLongInteger = 0x800A,
+        Real48Bits = 0x800B,
+        Complex32Bits = 0x800C,
+        Complex64Bits = 0x800D,
+        Complex80Bits = 0x800E,
+        Complex128Bits = 0x800F,
         VariableLengthString = 0x8010,
 
         OctalWord = 0x8017,
         UnsignedOctalWord = 0x8018,
 
         Decimal = 0x8019,
-        Date = 0x801a,
-        UTF8String = 0x801b,
+        Date = 0x801A,
+        UTF8String = 0x801B,
 
-        Real16Bits = 0x801c,
-
+        Real16Bits = 0x801C,
     }
 }

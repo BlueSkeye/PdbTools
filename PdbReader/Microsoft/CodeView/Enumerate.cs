@@ -2,13 +2,15 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Enumerate : INamedItem
+    internal class Enumerate : INamedItem, ILeafRecord
     {
         internal _Enumerate _header;
         // variable length value field followed
         // by length prefixed name of field
         internal ulong _enumerationValue;
         internal string _name;
+
+        public LeafIndices LeafKind => LeafIndices.Enumerate;
 
         public string Name => _name;
 
@@ -28,7 +30,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _Enumerate
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_Enumerate>();
-            internal LEAF_ENUM_e _leaf; // LF_ENUMERATE
+            internal LeafIndices _leaf; // LF_ENUMERATE
             internal CV_fldattr_t attr; // attribute mask
         }
     }

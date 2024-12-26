@@ -3,15 +3,14 @@
 namespace PdbReader.TypeRecords
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct PointerRecord
+    internal class PointerRecord : TypeRecordHeader
     {
         internal readonly _Attributes Attributes;
         internal readonly uint BaseTypeIndex;
-        internal readonly TypeRecordHeader Header;
 
         internal PointerRecord(PdbStreamReader reader)
+            : base(reader)
         {
-            Header = reader.Read<TypeRecordHeader>();
             BaseTypeIndex = reader.ReadUInt32();
             Attributes = (_Attributes)reader.ReadUInt32();
         }

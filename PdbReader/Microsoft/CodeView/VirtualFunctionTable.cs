@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class VirtualFunctionTable
+    internal class VirtualFunctionTable : ILeafRecord
     {
         internal _VirtualFunctionTable _data;
         //unsigned char Names[1]; // array of names.
@@ -12,6 +12,8 @@ namespace PdbReader.Microsoft.CodeView
         // avoid duplication of method names.
 
         internal List<string> _names;
+
+        public LeafIndices LeafKind => LeafIndices.VirtualFunctionTable;
 
         private VirtualFunctionTable(_VirtualFunctionTable data)
         {
@@ -40,7 +42,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _VirtualFunctionTable
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_VirtualFunctionTable>();
-            internal LEAF_ENUM_e leaf; // LF_VFTABLE
+            internal LeafIndices leaf; // LF_VFTABLE
             internal uint /*CV_typ_t*/ type; // class/structure that owns the vftable
             internal uint /*CV_typ_t*/ baseVftable; // vftable from which this vftable is derived
             internal uint offsetInObjectLayout; // offset of the vfptr to this table, relative to the start of the object layout.

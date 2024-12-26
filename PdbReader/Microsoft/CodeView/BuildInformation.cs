@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class BuildInformation
+    internal class BuildInformation : ILeafRecord
     {
         internal _InformationBase Base;
         internal uint[] /*CV_ItemId*/ Arguments;
@@ -12,6 +12,8 @@ namespace PdbReader.Microsoft.CodeView
             Base = @base;
             Arguments = new uint[Base.count];
         }
+
+        public LeafIndices LeafKind => LeafIndices.BuildInformation;
 
         internal static BuildInformation Create(PdbStreamReader reader,
             ref uint maxLength)
@@ -28,7 +30,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _InformationBase
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_InformationBase>();
-            internal LEAF_ENUM_e leaf; // LF_BUILDINFO
+            internal LeafIndices leaf; // LF_BUILDINFO
             internal ushort count; // number of arguments
         }
     }

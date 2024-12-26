@@ -3,17 +3,38 @@
 namespace PdbReader.TypeRecords
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct TypeRecordHeader
+    internal class TypeRecordHeader
     {
+        internal static readonly TypeRecordHeader PrefetchInstance = new TypeRecordHeader();
+
         /// <summary>Record length, NOT including this 2 byte field.</summary>
         internal ushort RecordLength;
         /// <summary>Record kind enumeration.</summary>
         internal _Kind RecordKind;
+        
+        internal static TypeRecordHeader InitializePrefetchInstanceUnsafe(PdbStreamReader reader)
+        {
+            PrefetchInstance.RecordLength = reader.ReadUInt16();
+            PrefetchInstance.RecordKind = (_Kind)reader.ReadUInt16();
+            return PrefetchInstance;
+        }
+
+        /// <remarks>For exclusive use of <see cref="PrefetchInstance"/> instanciation.</remarks>
+        private TypeRecordHeader()
+        {
+        }
+
+        protected TypeRecordHeader(PdbStreamReader reader)
+        {
+            RecordLength = reader.ReadUInt16();
+            RecordKind = (_Kind)reader.ReadUInt16();
+        }
 
         /// <summary>Sorted by identifier.</summary>
         internal enum _Kind : ushort
         {
             VTShape = 0x000A,
+            
             Modifier = 0x1001,
             Pointer = 0x1002,
             Procedure = 0x1008,

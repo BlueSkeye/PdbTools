@@ -40,9 +40,7 @@ namespace PdbReader
             IStreamGlobalOffset recordEndGlobalOffsetExcluded = 
                 recordStartGlobalOffset.Add(recordTotalLength);
             uint recordEndOffsetExcluded = recordStartOffset + recordTotalLength;
-            LEAF_ENUM_e recordKind;
-            object result = LoadRecord(recordIdentifier, ref recordLength,
-                out recordKind);
+            ILeafRecord result = LoadRecord(recordIdentifier, ref recordLength);
             IStreamGlobalOffset currentGlobalOffset = _reader.GetGlobalOffset();
             uint currentOffset = _reader.Offset;
             if (currentOffset < recordEndOffsetExcluded) {
@@ -55,13 +53,13 @@ namespace PdbReader
                     // NOTICE : This is an heuristic which is not supported by official source
                     // code evidences.
                     Console.WriteLine(
-                        $"WARN : {recordKind} record #{recordIdentifier} starting at 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
+                        $"WARN : {result.LeafKind} record #{recordIdentifier} starting at 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
                         $"Should have ended at 0x{recordEndGlobalOffsetExcluded.Value:X8}/{recordEndOffsetExcluded} : {ignoredBytesCount} bytes ignored.");
                 }
                 else {
                     doNotWarnOnReset = true;
                     if (_owner.FullDecodingDebugEnabled) {
-                        Console.WriteLine($"DBG : {recordKind} record #{recordIdentifier} fully decoded.");
+                        Console.WriteLine($"DBG : {result.LeafKind} record #{recordIdentifier} fully decoded.");
                     }
                 }
                 // Adjust reader position.
@@ -71,98 +69,98 @@ namespace PdbReader
                 // 
                 uint excessBytesCount = currentOffset - recordEndOffsetExcluded;
                 Console.WriteLine(
-                    $"WARN : {recordKind} record #{recordIdentifier} starting 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
+                    $"WARN : {result.LeafKind} record #{recordIdentifier} starting 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
                     $"Should have ended at 0x{recordEndGlobalOffsetExcluded.Value:X8}/{recordEndOffsetExcluded} : consumed {excessBytesCount} bytes in excess");
                 // Adjust reader position.
                 _reader.SetGlobalOffset(recordEndGlobalOffsetExcluded);
             }
             else if (currentOffset == recordEndOffsetExcluded) {
                 if (_owner.FullDecodingDebugEnabled) {
-                    Console.WriteLine($"DBG : {recordKind} record #{recordIdentifier} fully decoded.");
+                    Console.WriteLine($"DBG : {result.LeafKind} record #{recordIdentifier} fully decoded.");
                 }
             }
             else { throw new BugException(); }
             return result;
         }
 
-        internal virtual object LoadRecord(uint recordIdentifier, ref uint recordLength,
-            out LEAF_ENUM_e recordKind)
+        internal virtual ILeafRecord LoadRecord(uint recordIdentifier, ref uint recordLength)
         {
             // Most if not all definitions are from CVINFO.H
-            recordKind = (LEAF_ENUM_e)_reader.PeekUInt16();
+            LeafIndices recordKind = (LeafIndices)_reader.PeekUInt16();
             switch (recordKind) {
-                case LEAF_ENUM_e.ArgumentList:
+                case LeafIndices.ArgumentList:
                     return ArgumentList.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Array:
+                case LeafIndices.Array:
                     return CodeViewArray.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Array16Bits:
+                case LeafIndices.Array16Bits:
                     return CodeViewArray16Bits.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.BClass:
+                case LeafIndices.BClass:
                     return BaseClass.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.BitField:
+                case LeafIndices.BitField:
                     return BitField.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.BuildInformation:
+                case LeafIndices.BuildInformation:
                     return BuildInformation.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Class:
+                case LeafIndices.Class:
                     return Class.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Enum:
+                case LeafIndices.Enum:
                     return Enumeration.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Enumerate:
+                case LeafIndices.Enumerate:
                     return Enumerate.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.FieldList:
+                case LeafIndices.FieldList:
                     return FieldList.Create(this, ref recordLength);
-                case LEAF_ENUM_e.FunctionIdentifier:
+                case LeafIndices.FunctionIdentifier:
                     return FunctionIdentifier.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Index:
+                case LeafIndices.Index:
                     return Microsoft.CodeView.Index.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Label:
+                case LeafIndices.Label:
                     try { return _reader.Read<Label>(); }
                     finally { recordLength -= Label.Size; }
-                case LEAF_ENUM_e.Member:
+                case LeafIndices.Member:
                     return Member.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Method:
+                case LeafIndices.Method:
                     return Method.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.MethodList:
+                case LeafIndices.MethodList:
                     return MethodList.Create(this, ref recordLength);
-                case LEAF_ENUM_e.MFunction:
+                case LeafIndices.MFunction:
                     return MemberFunction.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.MFunctionIdentifier:
+                case LeafIndices.MFunctionIdentifier:
                     return MemberFunctionIdentifier.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Modifier:
+                case LeafIndices.Modifier:
                     try { return _reader.Read<Modifier>(); }
                     finally { recordLength -= Modifier.Size; }
-                case LEAF_ENUM_e.NestedType:
+                case LeafIndices.NestedType:
                     return NestedType.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.OneMethod:
+                case LeafIndices.OneMethod:
                     return OneMethod.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Pointer:
+                case LeafIndices.Pointer:
                     // Remaining bytes may be present that are name chars related.
-                    return (IPointer)PointerBody.Create(_reader, this, ref recordLength);
-                case LEAF_ENUM_e.Procedure:
+                    return PointerBody.Create(_reader, this, ref recordLength);
+                case LeafIndices.Procedure:
                     try { return _reader.Read<Procedure>(); }
                     finally { recordLength -= Procedure.Size; }
-                case LEAF_ENUM_e.STMember:
+                case LeafIndices.STMember:
                     return StaticMember.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.StringIdentifier:
+                case LeafIndices.StringIdentifier:
                     return StringIdentifier.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Structure:
-                    return Class.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.SubstringList:
+                case LeafIndices.Structure:
+                    return Structure.Create(_reader, ref recordLength);
+                case LeafIndices.SubstringList:
                     return SubstringList.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.UDTModuleSourceLine:
+                case LeafIndices.UDTModuleSourceLine:
                     return UDTModuleSourceLine.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.UDTSourceLine:
+                case LeafIndices.UDTSourceLine:
                     return UDTSourceLine.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.Union:
+                case LeafIndices.Union:
                     return Union.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.IVBClass:
-                case LEAF_ENUM_e.VBClass:
+                case LeafIndices.IVBClass:
+                    return IVirtualBaseClass.Create(_reader, ref recordLength);
+                case LeafIndices.VBClass:
                     return VirtualBaseClass.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.VirtualFunctionTable:
+                case LeafIndices.VirtualFunctionTable:
                     return VirtualFunctionTable.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.VFunctionTAB:
+                case LeafIndices.VFunctionTAB:
                     return VirtualFunctionTablePointer.Create(_reader, ref recordLength);
-                case LEAF_ENUM_e.VirtualTableShape:
+                case LeafIndices.VirtualTableShape:
                     return VirtualTableShape.Create(_reader, ref recordLength);
                 default:
                     // TODO : Account for padding pseudo bytes.
@@ -199,7 +197,8 @@ namespace PdbReader
                     }
                 }
             }
-            Console.WriteLine($"{StreamName} records loading completed.");
+            Console.WriteLine(
+                $"{StreamName} records loading completed. {recordIndex} records found. {recordsCount} were expected.");
             return;
         }
 

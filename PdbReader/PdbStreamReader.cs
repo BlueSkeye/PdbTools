@@ -376,6 +376,12 @@ namespace PdbReader
             return result;
         }
 
+        internal string ReadNTBString(bool allowExtraNTB = false)
+        {
+            uint maxLength = uint.MaxValue;
+            return ReadNTBString(ref maxLength, allowExtraNTB);
+        }
+
         internal string ReadNTBString(ref uint maxLength, bool allowExtraNTB = false)
         {
             AssertNotEndOfStream();
@@ -420,31 +426,31 @@ namespace PdbReader
                 return firstWord;
             }
             // The first word is the value type.
-            switch ((LEAF_ENUM_e)firstWord) {
-                case LEAF_ENUM_e.Character:
+            switch ((LeafIndices)firstWord) {
+                case LeafIndices.Character:
                     consumedBytes = sizeof(ushort) + sizeof(byte);
                     return (ulong)ReadByte();
-                case LEAF_ENUM_e.Integer:
+                case LeafIndices.Integer:
                     consumedBytes = sizeof(ushort) + sizeof(uint);
                     return (ulong)ReadUInt32();
-                case LEAF_ENUM_e.LongInteger:
+                case LeafIndices.LongInteger:
                     consumedBytes = sizeof(ushort) + sizeof(ulong);
                     return (ulong)ReadUInt64();
-                case LEAF_ENUM_e.Real128Bits:
+                case LeafIndices.Real128Bits:
                     consumedBytes = sizeof(ushort) + 16;
                     byte[] real128BitsResult = new byte[16];
                     ReadArray<byte>(real128BitsResult, ReadByte);
                     return real128BitsResult;
-                case LEAF_ENUM_e.Short:
+                case LeafIndices.Short:
                     consumedBytes = sizeof(ushort) + sizeof(ushort);
                     return (ulong)ReadUInt16();
-                case LEAF_ENUM_e.UnsignedInteger:
+                case LeafIndices.UnsignedInteger:
                     consumedBytes = sizeof(ushort) + sizeof(uint);
                     return (ulong)ReadUInt32();
-                case LEAF_ENUM_e.UnsignedLongInteger:
+                case LeafIndices.UnsignedLongInteger:
                     consumedBytes = sizeof(ushort) + sizeof(ulong);
                     return (ulong)ReadUInt64();
-                case LEAF_ENUM_e.UnsignedShort:
+                case LeafIndices.UnsignedShort:
                     consumedBytes = sizeof(ushort) + sizeof(ushort);
                     return (ulong)ReadUInt16();
                 //case LEAF_ENUM_e.LongInteger:
@@ -452,7 +458,7 @@ namespace PdbReader
                 //case LEAF_ENUM_e.UnsignedLongInteger:
                 //    return (long)ReadUInt64();
                 default:
-                    if (CodeViewUtils.IsValidBuiltinType((LEAF_ENUM_e)firstWord)) {
+                    if (CodeViewUtils.IsValidBuiltinType((LeafIndices)firstWord)) {
                         throw new NotSupportedException(
                             $"Unsupported builtin type identifier 0x{firstWord:X4}.");
                     }

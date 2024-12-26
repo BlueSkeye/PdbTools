@@ -2,10 +2,12 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Index : INamedItem
+    internal class Index : INamedItem, ILeafRecord
     {
         private const string ConstantName = "Index";
         internal _Index _data { get; private set; }
+
+        public LeafIndices LeafKind => LeafIndices.Index;
 
         public string Name => ConstantName;
 
@@ -23,7 +25,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _Index
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_Index>();
-            internal LEAF_ENUM_e leaf; // LF_INDEX
+            internal LeafIndices leaf; // LF_INDEX
             internal ushort /*_2BYTEPAD*/ pad0; // internal padding, must be 0
             internal uint /*CV_ItemId*/ index; // type index of referenced leaf
         }

@@ -26,6 +26,7 @@
     <Compile Include="Microsoft\CodeView\BitField.cs" />
     <Compile Include="Microsoft\CodeView\BuildInformation.cs" />
     <Compile Include="Microsoft\CodeView\Class.cs" />
+    <Compile Include="Microsoft\CodeView\ClassOrStructureBase.cs" />
     <Compile Include="Microsoft\CodeView\CodeViewArray.cs" />
     <Compile Include="Microsoft\CodeView\CodeViewArray16Bits.cs" />
     <Compile Include="Microsoft\CodeView\CV_access_e.cs" />
@@ -43,11 +44,13 @@
     <Compile Include="Microsoft\CodeView\Enumeration.cs" />
     <Compile Include="Microsoft\CodeView\FieldList.cs" />
     <Compile Include="Microsoft\CodeView\FunctionIdentifier.cs" />
+    <Compile Include="Microsoft\CodeView\ILeafRecord.cs" />
     <Compile Include="Microsoft\CodeView\INamedItem.cs" />
     <Compile Include="Microsoft\CodeView\Index.cs" />
     <Compile Include="Microsoft\CodeView\IPointer.cs" />
+    <Compile Include="Microsoft\CodeView\IVirtualBaseClass.cs" />
     <Compile Include="Microsoft\CodeView\Label.cs" />
-    <Compile Include="Microsoft\CodeView\LEAF_ENUM_e.cs" />
+    <Compile Include="Microsoft\CodeView\LeafIndices.cs" />
     <Compile Include="Microsoft\CodeView\Member.cs" />
     <Compile Include="Microsoft\CodeView\MemberFunction.cs" />
     <Compile Include="Microsoft\CodeView\MemberFunctionIdentifier.cs" />
@@ -63,6 +66,7 @@
     <Compile Include="Microsoft\CodeView\SegmentBasedPointer.cs" />
     <Compile Include="Microsoft\CodeView\StaticMember.cs" />
     <Compile Include="Microsoft\CodeView\StringIdentifier.cs" />
+    <Compile Include="Microsoft\CodeView\Structure.cs" />
     <Compile Include="Microsoft\CodeView\SubstringList.cs" />
     <Compile Include="Microsoft\CodeView\TypeBasedPointer.cs" />
     <Compile Include="Microsoft\CodeView\TYPE_ENUM_e.cs" />
@@ -71,6 +75,7 @@
     <Compile Include="Microsoft\CodeView\Union.cs" />
     <Compile Include="Microsoft\CodeView\CodeViewUtils.cs" />
     <Compile Include="Microsoft\CodeView\VirtualBaseClass.cs" />
+    <Compile Include="Microsoft\CodeView\VirtualBaseClassBase.cs" />
     <Compile Include="Microsoft\CodeView\VirtualFunctionTable.cs" />
     <Compile Include="Microsoft\CodeView\VirtualFunctionTablePointer.cs" />
     <Compile Include="Microsoft\CodeView\VirtualTableShape.cs" />
@@ -98,6 +103,7 @@
     <Compile Include="..\SharedSource\KnownDirectories.cs" />
     <Compile Include="TypeRecords\ModifierRecord.cs" />
     <Compile Include="TypeRecords\PointerRecord.cs" />
+    <Compile Include="TypeRecords\ClassInterfaceStructureRecord.cs" />
     <Compile Include="TypeRecords\TypeRecordHeader.cs" />
     <Compile Include="Utils.cs" />
 

@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Member : INamedItem
+    internal class Member : INamedItem, ILeafRecord
     {
         private const ushort MethodAccessMask = 0x0003;
         private const ushort MethodPropertiesMask = 0x0007;
@@ -12,6 +12,8 @@ namespace PdbReader.Microsoft.CodeView
         // variable length offset of field followed
         // by length prefixed name of field
         internal string _name;
+
+        public LeafIndices LeafKind => LeafIndices.Member;
 
         internal CV_access_e MethodAccess
             => (CV_access_e)((ushort)_member.attr & MethodAccessMask);
@@ -39,7 +41,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _Member
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_Member>();
-            internal LEAF_ENUM_e _leaf; // LF_MEMBER
+            internal LeafIndices _leaf; // LF_MEMBER
             internal CV_fldattr_t attr; // attribute mask
             internal uint /*CV_typ_t*/ index; // index of type record for field
         }

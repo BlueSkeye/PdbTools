@@ -2,13 +2,15 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Union : INamedItem
+    internal class Union : INamedItem, ILeafRecord
     {
         internal _Union _data;
         // variable length data describing length of structure and name
         internal ulong _unionLength;
         internal string _name;
         internal string _decoratedName;
+
+        public LeafIndices LeafKind => LeafIndices.Union;
 
         public string Name => _name;
 
@@ -29,7 +31,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _Union
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_Union>();
-            internal LEAF_ENUM_e leaf; // LF_UNION
+            internal LeafIndices leaf; // LF_UNION
             internal ushort count; // count of number of elements in class
             internal CV_prop_t property; // property attribute field
             internal uint /*CV_typ_t*/ field; // type index of LF_FIELD descriptor list

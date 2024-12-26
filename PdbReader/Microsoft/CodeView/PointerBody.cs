@@ -5,17 +5,18 @@ namespace PdbReader.Microsoft.CodeView
     /// <summary></summary>
     /// <remarks>Structures are byte aligned. SizeOf(PointerBody) = 10</remarks>
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct PointerBody
+    internal struct PointerBody : ILeafRecord
     {
         private static readonly uint Size = (uint)Marshal.SizeOf<PointerBody>();
 
-        internal LEAF_ENUM_e leaf; // LF_POINTER
+        internal LeafIndices leaf; // LF_POINTER
         // type index of the underlying type
         internal uint utype;
         internal Attributes attr;
 
-        internal static IPointer Create(PdbStreamReader reader, IndexedStream stream,
-            ref uint maxLength)
+        public LeafIndices LeafKind => LeafIndices.Pointer;
+
+        internal static ILeafRecord Create(PdbStreamReader reader, IndexedStream stream, ref uint maxLength)
         {
             if (Size > maxLength) {
                 throw new PDBFormatException("Invalid record length.");
@@ -23,7 +24,7 @@ namespace PdbReader.Microsoft.CodeView
             uint startOffset = reader.Offset;
             PointerBody rawBody = reader.Read<PointerBody>();
             Utils.SafeDecrement(ref maxLength, PointerBody.Size);
-            if (LEAF_ENUM_e.Pointer != rawBody.leaf) {
+            if (LeafIndices.Pointer != rawBody.leaf) {
                 throw new PDBFormatException(
                     $"Invalid leaf identifier {rawBody.leaf} found on pointer body.");
             }

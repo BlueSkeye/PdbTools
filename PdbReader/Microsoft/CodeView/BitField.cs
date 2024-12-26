@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class BitField
+    internal class BitField : ILeafRecord
     {
         internal _BitField _data;
 
@@ -10,6 +10,8 @@ namespace PdbReader.Microsoft.CodeView
         {
             _data = data;
         }
+
+        public LeafIndices LeafKind => LeafIndices.BitField;
 
         internal static BitField Create(PdbStreamReader reader, ref uint maxLength)
         {
@@ -24,7 +26,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _BitField
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_BitField>();
-            internal LEAF_ENUM_e leaf; // LF_BITFIELD
+            internal LeafIndices leaf; // LF_BITFIELD
             internal uint /*CV_typ_t*/ type; // type of bitfield
             internal byte length;
             internal byte position;

@@ -11,6 +11,8 @@ namespace PdbReader.Microsoft.CodeView
 
         public PointerBody Body => _body;
 
+        public LeafIndices LeafKind => LeafIndices.Pointer;
+
         internal static TypeBasedPointer Create(PdbStreamReader reader, PointerBody body,
             ref uint maxLength)
         {

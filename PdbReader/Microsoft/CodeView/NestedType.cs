@@ -2,9 +2,11 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class NestedType : INamedItem
+    internal class NestedType : INamedItem, ILeafRecord
     {
         private _NestedType _nestedType;
+
+        public LeafIndices LeafKind => LeafIndices.NestedType;
 
         public string Name { get; private set; }
 
@@ -22,7 +24,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _NestedType
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_NestedType>();
-            internal LEAF_ENUM_e leaf; // LF_NESTTYPE
+            internal LeafIndices leaf; // LF_NESTTYPE
             // internal padding, must be 0
             internal byte Pad1;
             internal byte Pad2;

@@ -2,12 +2,14 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class CodeViewArray16Bits : INamedItem
+    internal class CodeViewArray16Bits : INamedItem, ILeafRecord
     {
         internal _Array16Bits _data;
         //variable length data specifying size in bytes and name
         internal ulong _arrayLength;
         internal string _name;
+
+        public LeafIndices LeafKind => LeafIndices.Array16Bits;
 
         public string Name => _name;
 
@@ -32,7 +34,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _Array16Bits
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_Array16Bits>();
-            internal LEAF_ENUM_e leaf; // LF_ARRAY_16t
+            internal LeafIndices leaf; // LF_ARRAY_16t
             internal ushort /*CV_typ16_t*/ elemtype; // type index of element type
             internal ushort /*CV_typ16_t*/ idxtype; // type index of indexing type
         }

@@ -2,22 +2,24 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class MethodList
+    internal class MethodList : ILeafRecord
     {
-        internal LEAF_ENUM_e _leaf; // LF_METHODLIST
+        internal LeafIndices _leaf; // LF_METHODLIST
         // char data[CV_ZEROLEN]; // field list sub lists
         internal List<ListedMethod> _members = new List<ListedMethod>();
 
-        private MethodList(LEAF_ENUM_e leaf)
+        private MethodList(LeafIndices leaf)
         {
             _leaf = leaf;
         }
+
+        public LeafIndices LeafKind => LeafIndices.MethodList;
 
         internal static MethodList Create(IndexedStream stream, ref uint maxLength)
         {
             PdbStreamReader reader = stream._reader;
             uint endOffsetExcluded = maxLength + reader.Offset;
-            MethodList result = new MethodList((LEAF_ENUM_e)reader.ReadUInt16());
+            MethodList result = new MethodList((LeafIndices)reader.ReadUInt16());
             Utils.SafeDecrement(ref maxLength, sizeof(ushort));
             while (endOffsetExcluded > reader.Offset) {
                 result._members.Add(ListedMethod.Create(reader, ref maxLength));

@@ -2,10 +2,12 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class StaticMember : INamedItem
+    internal class StaticMember : INamedItem, ILeafRecord
     {
         private _StaticMember _staticMember;
         // unsigned char Name[1];        // length prefixed name of field
+
+        public LeafIndices LeafKind => LeafIndices.STMember;
 
         public string Name { get; private set; }
 
@@ -23,7 +25,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _StaticMember
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_StaticMember>();
-            internal LEAF_ENUM_e leaf; // LF_STMEMBER
+            internal LeafIndices leaf; // LF_STMEMBER
             internal CV_fldattr_t attr; // attribute mask
             internal uint /*CV_typ_t*/ index; // index of type record for field
         }

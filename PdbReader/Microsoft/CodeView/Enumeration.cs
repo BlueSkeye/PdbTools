@@ -3,7 +3,7 @@ using System.Text;
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Enumeration
+    internal class Enumeration : ILeafRecord
     {
         internal _Enumeration _data;
         internal string _name;
@@ -16,6 +16,8 @@ namespace PdbReader.Microsoft.CodeView
             _decoratedName = decoratedName
                 ?? throw new ArgumentNullException(nameof(decoratedName));
         }
+
+        public LeafIndices LeafKind => LeafIndices.Enum;
 
         internal static Enumeration Create(PdbStreamReader reader, ref uint maxLength)
         {
@@ -30,7 +32,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _Enumeration
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_Enumeration>();
-            internal LEAF_ENUM_e leaf; // LF_ENUM
+            internal LeafIndices leaf; // LF_ENUM
             internal ushort count; // count of number of elements in class
             internal CV_prop_t property; // property attribute field
             internal uint /*CV_typ_t*/ utype; // underlying type of the enum

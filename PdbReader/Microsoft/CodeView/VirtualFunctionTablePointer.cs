@@ -2,9 +2,11 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class VirtualFunctionTablePointer : INamedItem
+    internal class VirtualFunctionTablePointer : INamedItem, ILeafRecord
     {
         private _VirtualFunctionTablePointer _virtualFunctionTablePointer;
+
+        public LeafIndices LeafKind => LeafIndices.VFunctionTAB;
 
         public string Name => INamedItem.NoName;
 
@@ -22,7 +24,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _VirtualFunctionTablePointer
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_VirtualFunctionTablePointer>();
-            internal LEAF_ENUM_e leaf; // LF_VFUNCTAB
+            internal LeafIndices leaf; // LF_VFUNCTAB
             internal ushort Pad0; // internal padding, must be 0
             internal uint /*CV_typ_t*/ type; // type index of pointer
         }

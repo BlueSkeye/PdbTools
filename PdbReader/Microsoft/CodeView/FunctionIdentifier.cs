@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class FunctionIdentifier
+    internal class FunctionIdentifier : ILeafRecord
     {
         internal _FunctionIdentifier Identifier { get; private set; }
         internal string Name { get; private set; }
@@ -18,11 +18,13 @@ namespace PdbReader.Microsoft.CodeView
             return result;
         }
 
+        public LeafIndices LeafKind => LeafIndices.FunctionIdentifier;
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _FunctionIdentifier
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_FunctionIdentifier>();
-            internal LEAF_ENUM_e leaf; // LF_FUNC_ID
+            internal LeafIndices leaf; // LF_FUNC_ID
             internal uint /*CV_ItemId*/ scopeId; // parent scope of the ID, 0 if global
             internal uint /*CV_typ_t*/ type; // function type
         }

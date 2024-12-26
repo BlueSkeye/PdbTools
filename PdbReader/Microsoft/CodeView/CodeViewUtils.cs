@@ -35,40 +35,40 @@ namespace PdbReader.Microsoft.CodeView
             return (CV_ptrtype_e)(((uint)attributes & PointerTypeMask) >> PointerTypeShift);
         }
 
-        internal static bool IsBuiltinType(LEAF_ENUM_e candidate)
+        internal static bool IsBuiltinType(LeafIndices candidate)
         {
             return (0 != (0x8000 & (ushort)candidate));
         }
 
-        internal static bool IsValidBuiltinType(LEAF_ENUM_e candidate)
+        internal static bool IsValidBuiltinType(LeafIndices candidate)
         {
             if (!IsBuiltinType(candidate)) {
                 return false;
             }
             switch (candidate) {
-                case LEAF_ENUM_e.Character:
-                case LEAF_ENUM_e.Short:
-                case LEAF_ENUM_e.UnsignedShort:
-                case LEAF_ENUM_e.Integer:
-                case LEAF_ENUM_e.UnsignedInteger:
-                case LEAF_ENUM_e.Real32Bits:
-                case LEAF_ENUM_e.Real64Bits:
-                case LEAF_ENUM_e.Real80Bits:
-                case LEAF_ENUM_e.Real128Bits:
-                case LEAF_ENUM_e.LongInteger:
-                case LEAF_ENUM_e.UnsignedLongInteger:
-                case LEAF_ENUM_e.Real48Bits:
-                case LEAF_ENUM_e.Complex32Bits:
-                case LEAF_ENUM_e.Complex64Bits:
-                case LEAF_ENUM_e.Complex80Bits:
-                case LEAF_ENUM_e.Complex128Bits:
-                case LEAF_ENUM_e.VariableLengthString:
-                case LEAF_ENUM_e.OctalWord:
-                case LEAF_ENUM_e.UnsignedOctalWord:
-                case LEAF_ENUM_e.Decimal:
-                case LEAF_ENUM_e.Date:
-                case LEAF_ENUM_e.UTF8String:
-                case LEAF_ENUM_e.Real16Bits:
+                case LeafIndices.Character:
+                case LeafIndices.Short:
+                case LeafIndices.UnsignedShort:
+                case LeafIndices.Integer:
+                case LeafIndices.UnsignedInteger:
+                case LeafIndices.Real32Bits:
+                case LeafIndices.Real64Bits:
+                case LeafIndices.Real80Bits:
+                case LeafIndices.Real128Bits:
+                case LeafIndices.LongInteger:
+                case LeafIndices.UnsignedLongInteger:
+                case LeafIndices.Real48Bits:
+                case LeafIndices.Complex32Bits:
+                case LeafIndices.Complex64Bits:
+                case LeafIndices.Complex80Bits:
+                case LeafIndices.Complex128Bits:
+                case LeafIndices.VariableLengthString:
+                case LeafIndices.OctalWord:
+                case LeafIndices.UnsignedOctalWord:
+                case LeafIndices.Decimal:
+                case LeafIndices.Date:
+                case LeafIndices.UTF8String:
+                case LeafIndices.Real16Bits:
                     return true;
                 default:
                     return false;

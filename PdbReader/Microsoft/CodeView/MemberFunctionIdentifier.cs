@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class MemberFunctionIdentifier
+    internal class MemberFunctionIdentifier : ILeafRecord
     {
         private _MemberFunctionIdentifier _memberFunctionIdentifier;
         // unsigned char name[CV_ZEROLEN];
@@ -19,11 +19,13 @@ namespace PdbReader.Microsoft.CodeView
             return result;
         }
 
+        public LeafIndices LeafKind => LeafIndices.MFunctionIdentifier;
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _MemberFunctionIdentifier
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_MemberFunctionIdentifier>();
-            internal LEAF_ENUM_e leaf; // LF_MFUNC_ID
+            internal LeafIndices leaf; // LF_MFUNC_ID
             internal uint /*CV_typ_t*/ parentType; // type index of parent
             internal uint /*CV_typ_t*/ type; // function type
         }

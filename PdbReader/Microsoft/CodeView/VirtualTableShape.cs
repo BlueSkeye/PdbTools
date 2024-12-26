@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class VirtualTableShape
+    internal class VirtualTableShape : ILeafRecord
     {
         internal _VirtualTableShape _data;
 
@@ -10,6 +10,8 @@ namespace PdbReader.Microsoft.CodeView
         {
             _data = data;
         }
+
+        public LeafIndices LeafKind => LeafIndices.VirtualTableShape;
 
         internal static VirtualTableShape Create(PdbStreamReader reader, ref uint maxLength)
         {
@@ -39,7 +41,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _VirtualTableShape
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_VirtualTableShape>();
-            internal LEAF_ENUM_e leaf; // LF_VTSHAPE
+            internal LeafIndices leaf; // LF_VTSHAPE
             internal ushort count; // number of entries in vfunctable
             // unsigned char desc[CV_ZEROLEN];     // 4 bit (CV_VTS_desc) descriptors
         }

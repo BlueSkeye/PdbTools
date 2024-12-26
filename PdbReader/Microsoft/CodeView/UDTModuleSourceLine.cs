@@ -2,9 +2,11 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class UDTModuleSourceLine
+    internal class UDTModuleSourceLine : ILeafRecord
     {
         private _UDTModuleSourceLine _udtModuleSourceLine;
+
+        public LeafIndices LeafKind => LeafIndices.UDTModuleSourceLine;
 
         // public string Name { get; private set; }
 
@@ -22,7 +24,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _UDTModuleSourceLine
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_UDTModuleSourceLine>();
-            internal LEAF_ENUM_e leaf; // LF_UDT_MOD_SRC_LINE
+            internal LeafIndices leaf; // LF_UDT_MOD_SRC_LINE
             internal uint /*CV_typ_t*/ type; // UDT's type index
             internal uint /*CV_ItemId*/ src; // index into string table where source file name is saved
             internal uint line; // line number

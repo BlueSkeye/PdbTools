@@ -2,12 +2,14 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class OneMethod : INamedItem
+    internal class OneMethod : INamedItem, ILeafRecord
     {
         private _OneMethod _oneMethod;
         // offset in vfunctable if intro virtual followed by length prefixed name of method
         // unsigned long vbaseoff[CV_ZEROLEN];
         private uint _virtualFunctionTableOffset;
+
+        public LeafIndices LeafKind => LeafIndices.OneMethod;
 
         public string Name { get; private set; }
 
@@ -35,7 +37,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _OneMethod
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_OneMethod>();
-            internal LEAF_ENUM_e leaf; // LF_ONEMETHOD
+            internal LeafIndices leaf; // LF_ONEMETHOD
             internal CV_fldattr_t attr; // method attribute
             internal uint /*CV_typ_t*/ index; // index to type record for procedure
         }

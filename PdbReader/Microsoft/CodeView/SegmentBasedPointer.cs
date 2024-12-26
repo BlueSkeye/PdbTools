@@ -10,8 +10,10 @@ namespace PdbReader.Microsoft.CodeView
 
         public PointerBody Body => _body;
 
-        internal static SegmentBasedPointer Create(PdbStreamReader reader,
-            PointerBody rawBody, ref uint maxLength)
+        public LeafIndices LeafKind => LeafIndices.Pointer;
+
+        internal static SegmentBasedPointer Create(PdbStreamReader reader, PointerBody rawBody,
+            ref uint maxLength)
         {
             SegmentBasedPointer result = new SegmentBasedPointer() {
                 _body = rawBody,

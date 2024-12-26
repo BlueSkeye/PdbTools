@@ -3,15 +3,14 @@
 namespace PdbReader.TypeRecords
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct ModifierRecord
+    internal class ModifierRecord : TypeRecordHeader
     {
         internal readonly uint BaseTypeIndex;
         internal readonly _Flags Flags;
-        internal readonly TypeRecordHeader Header;
 
         internal ModifierRecord(PdbStreamReader reader)
+            : base(reader)
         {
-            Header = reader.Read<TypeRecordHeader>();
             BaseTypeIndex = reader.ReadUInt32();
             Flags = (_Flags)reader.ReadUInt16();
         }

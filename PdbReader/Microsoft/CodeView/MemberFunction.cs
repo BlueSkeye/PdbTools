@@ -2,9 +2,11 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class MemberFunction
+    internal class MemberFunction : ILeafRecord
     {
         private _MemberFunction _memberFunction;
+
+        public LeafIndices LeafKind => LeafIndices.MFunction;
 
         internal static MemberFunction Create(PdbStreamReader reader, ref uint maxLength)
         {
@@ -20,7 +22,7 @@ namespace PdbReader.Microsoft.CodeView
         internal struct _MemberFunction
         {
             internal static readonly uint Size = (uint)Marshal.SizeOf<_MemberFunction>();
-            internal LEAF_ENUM_e leaf; // LF_MFUNCTION
+            internal LeafIndices leaf; // LF_MFUNCTION
             internal uint /*CV_typ_t*/ rvtype; // type index of return value
             internal uint /*CV_typ_t*/ classtype; // type index of containing class
             internal uint /*CV_typ_t*/ thistype; // type index of this pointer (model specific)

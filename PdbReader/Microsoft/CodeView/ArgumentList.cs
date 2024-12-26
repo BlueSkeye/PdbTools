@@ -2,10 +2,12 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class ArgumentList
+    internal class ArgumentList : ILeafRecord
     {
         internal _ArgumentList _header;
         internal List<uint> _arguments = new List<uint>();
+
+        public LeafIndices LeafKind => LeafIndices.ArgumentList;
 
         internal static ArgumentList Create(PdbStreamReader reader, ref uint maxLength)
         {

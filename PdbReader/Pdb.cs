@@ -227,6 +227,9 @@ namespace PdbReader
             result._tpiStream = new TPIStream(result);
             result._dbiStream = new DebugInformationStream(result);
             result.EnsureStringPoolBuffering();
+            throw new NotImplementedException();
+            // TODO : Walk each module stream, using information from _dbiStream and load codeview symbol
+            // records for the given module.
             return result;
         }
         

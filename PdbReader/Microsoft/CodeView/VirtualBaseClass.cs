@@ -1,63 +1,24 @@
-﻿using System.Runtime.InteropServices;
-
+﻿
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class VirtualBaseClass : INamedItem
+    internal class VirtualBaseClass : VirtualBaseClassBase, INamedItem, ILeafRecord
     {
-        private _VirtualBaseClass _virtualBaseClass;
-        // byte vbpoff[CV_ZEROLEN];
-        // virtual base pointer offset from address point
-        // followed by virtual base offset from vbtable
-        private List<Entry> _entries;
-
-        internal static VirtualBaseClass Create(PdbStreamReader reader,
-            ref uint maxLength)
+        private VirtualBaseClass(_VirtualBaseClass baseClass)
+            : base(baseClass)
         {
-            VirtualBaseClass result = new VirtualBaseClass() {
-                _virtualBaseClass = reader.Read<_VirtualBaseClass>(),
-                _entries = new List<Entry>()
-            };
-            Utils.SafeDecrement(ref maxLength, _VirtualBaseClass.Size);
-            while(0 < maxLength) {
-                result._entries.Add(Entry.Create(reader, ref maxLength));
-            }
-            return result;
         }
 
-        public string Name => INamedItem.NoName;
+        public LeafIndices LeafKind => LeafIndices.VBClass;
 
-        internal class Entry
+        internal static VirtualBaseClass Create(PdbStreamReader reader, ref uint maxLength)
         {
-            private _PointerOffsetPair _pointerAndOffset;
-            private string _name;
-
-            internal static Entry Create(PdbStreamReader reader, ref uint maxLength)
-            {
-                Entry result = new Entry() {
-                    _pointerAndOffset = reader.Read<_PointerOffsetPair>()
-                };
-                Utils.SafeDecrement(ref maxLength, _PointerOffsetPair.Size);
-                result._name = reader.ReadNTBString(ref maxLength);
-                return result;
-            }
-
-            [StructLayout(LayoutKind.Sequential, Pack = 1)]
-            internal struct _PointerOffsetPair
-            {
-                internal static readonly uint Size = (uint)Marshal.SizeOf<_PointerOffsetPair>();
-                internal uint _basePointer;
-                internal uint _baseOffset;
-            }
+            VirtualBaseClassBase result = VirtualBaseClassBase.Create(reader, ref maxLength, Instanciate);
+            return (VirtualBaseClass)result;
         }
 
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        internal struct _VirtualBaseClass
+        private static VirtualBaseClassBase Instanciate(_VirtualBaseClass baseClass)
         {
-            internal static readonly uint Size = (uint)Marshal.SizeOf<_VirtualBaseClass>();
-            internal LEAF_ENUM_e leaf; // LF_VBCLASS, LV_IVBCLASS
-            internal CV_fldattr_t attr; // attribute
-            internal uint /*CV_typ_t*/ index; // type index of direct virtual base class
-            internal uint /*CV_typ_t*/ vbptr; // type index of virtual base pointer
+            return new VirtualBaseClass(baseClass);
         }
     }
 }
