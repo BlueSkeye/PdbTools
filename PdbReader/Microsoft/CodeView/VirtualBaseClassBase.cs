@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal abstract class VirtualBaseClassBase
+    internal abstract class VirtualBaseClassBase : TypeRecord
     {
         private _VirtualBaseClass _virtualBaseClass;
         // byte vbpoff[CV_ZEROLEN];

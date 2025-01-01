@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class FunctionIdentifier : ILeafRecord
+    internal class FunctionIdentifier : TypeRecord
     {
         internal _FunctionIdentifier Identifier { get; private set; }
         internal string Name { get; private set; }
@@ -18,7 +18,7 @@ namespace PdbReader.Microsoft.CodeView
             return result;
         }
 
-        public LeafIndices LeafKind => LeafIndices.FunctionIdentifier;
+        public override LeafIndices LeafKind => LeafIndices.FunctionIdentifier;
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct _FunctionIdentifier

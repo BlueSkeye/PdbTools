@@ -4,14 +4,14 @@ namespace PdbReader.Microsoft.CodeView
 {
     /// <summary>General format for pointer.</summary>
     /// <remarks>Structures are bytes aligned.</remarks>
-    internal class Pointer : IPointer
+    internal class Pointer : TypeRecord, IPointer
     {
         internal PointerBody _body;
         internal byte[]? _symbolData;
 
         public PointerBody Body => _body;
 
-        public LeafIndices LeafKind => LeafIndices.Pointer;
+        public override LeafIndices LeafKind => LeafIndices.Pointer;
 
         internal static Pointer Create(IndexedStream stream, PdbStreamReader reader, PointerBody body,
             ref uint maxLength)

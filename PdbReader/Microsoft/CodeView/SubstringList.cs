@@ -2,12 +2,12 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class SubstringList : ILeafRecord
+    internal class SubstringList : TypeRecord
     {
         internal _SubstringList _header;
         internal List<uint> _subStrings = new List<uint>();
 
-        public LeafIndices LeafKind => LeafIndices.SubstringList;
+        public override LeafIndices LeafKind => LeafIndices.SubstringList;
 
         internal static SubstringList Create(PdbStreamReader reader, ref uint maxLength)
         {

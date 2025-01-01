@@ -2,11 +2,11 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class VirtualFunctionTablePointer : INamedItem, ILeafRecord
+    internal class VirtualFunctionTablePointer : TypeRecord, INamedItem
     {
         private _VirtualFunctionTablePointer _virtualFunctionTablePointer;
 
-        public LeafIndices LeafKind => LeafIndices.VFunctionTAB;
+        public override LeafIndices LeafKind => LeafIndices.VFunctionTAB;
 
         public string Name => INamedItem.NoName;
 

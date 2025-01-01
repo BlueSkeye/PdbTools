@@ -2,12 +2,12 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class StaticMember : INamedItem, ILeafRecord
+    internal class StaticMember : TypeRecord, INamedItem
     {
         private _StaticMember _staticMember;
         // unsigned char Name[1];        // length prefixed name of field
 
-        public LeafIndices LeafKind => LeafIndices.STMember;
+        public override LeafIndices LeafKind => LeafIndices.STMember;
 
         public string Name { get; private set; }
 

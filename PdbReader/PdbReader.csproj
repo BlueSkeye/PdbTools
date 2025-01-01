@@ -44,7 +44,9 @@
     <Compile Include="Microsoft\CodeView\Enumeration.cs" />
     <Compile Include="Microsoft\CodeView\FieldList.cs" />
     <Compile Include="Microsoft\CodeView\FunctionIdentifier.cs" />
-    <Compile Include="Microsoft\CodeView\ILeafRecord.cs" />
+    <Compile Include="Microsoft\CodeView\ICodeviewRecord.cs" />
+    <Compile Include="Microsoft\CodeView\ISymbolRecord.cs" />
+    <Compile Include="Microsoft\CodeView\ITypeRecord.cs" />
     <Compile Include="Microsoft\CodeView\INamedItem.cs" />
     <Compile Include="Microsoft\CodeView\Index.cs" />
     <Compile Include="Microsoft\CodeView\IPointer.cs" />
@@ -68,7 +70,9 @@
     <Compile Include="Microsoft\CodeView\StringIdentifier.cs" />
     <Compile Include="Microsoft\CodeView\Structure.cs" />
     <Compile Include="Microsoft\CodeView\SubstringList.cs" />
+    <Compile Include="Microsoft\CodeView\SymbolRecord.cs" />
     <Compile Include="Microsoft\CodeView\TypeBasedPointer.cs" />
+    <Compile Include="Microsoft\CodeView\TypeRecord.cs" />
     <Compile Include="Microsoft\CodeView\TYPE_ENUM_e.cs" />
     <Compile Include="Microsoft\CodeView\UDTModuleSourceLine.cs" />
     <Compile Include="Microsoft\CodeView\UDTSourceLine.cs" />
@@ -85,6 +89,7 @@
     <Compile Include="Microsoft\RUNTIME_FUNCTION.cs" />
     <Compile Include="Microsoft\UnwindData.cs" />
     <Compile Include="ModuleInfoRecord.cs" />
+    <Compile Include="ModuleInformationStream.cs" />
     <Compile Include="MSFSuperBlock.cs" />
     <Compile Include="Pdb.cs" />
     <Compile Include="PDBFormatException.cs" />

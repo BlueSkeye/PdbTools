@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class VirtualTableShape : ILeafRecord
+    internal class VirtualTableShape : TypeRecord
     {
         internal _VirtualTableShape _data;
 
@@ -11,7 +11,7 @@ namespace PdbReader.Microsoft.CodeView
             _data = data;
         }
 
-        public LeafIndices LeafKind => LeafIndices.VirtualTableShape;
+        public override LeafIndices LeafKind => LeafIndices.VirtualTableShape;
 
         internal static VirtualTableShape Create(PdbStreamReader reader, ref uint maxLength)
         {

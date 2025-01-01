@@ -2,11 +2,11 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal struct StringIdentifier : ILeafRecord
+    internal class StringIdentifier : TypeRecord
     {
         internal _StringIdentifier Identifier { get; private set; }
 
-        public LeafIndices LeafKind => LeafIndices.StringIdentifier;
+        public override LeafIndices LeafKind => LeafIndices.StringIdentifier;
 
         internal string Name { get; private set; }
 

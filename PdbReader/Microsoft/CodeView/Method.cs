@@ -2,12 +2,12 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Method : INamedItem, ILeafRecord
+    internal class Method : TypeRecord, INamedItem
     {
         private _Method _method;
         // unsigned char Name[1];        // length prefixed name of method
 
-        public LeafIndices LeafKind => LeafIndices.Method;
+        public override LeafIndices LeafKind => LeafIndices.Method;
 
         public string Name { get; private set; }
 

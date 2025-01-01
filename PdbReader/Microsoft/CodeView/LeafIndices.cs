@@ -3,23 +3,22 @@ namespace PdbReader.Microsoft.CodeView
 {
     /// <remarks>Taken from microsoft-pdb/include/cvinfo.h/LEAF_ENUM_e</remarks>
     /// <summary>From CVINFO.H
-    /// No leaf index can have a value of 0x0000. The leaf indices are separated into ranges
-    /// depending upon the use of the type record.
+    /// No leaf index can have a value of 0x0000. The leaf indices are separated into ranges depending upon
+    /// the use of the type record.
     /// The first range is for type records that are not referenced by symbols but instead are
     /// referenced by other type records.
     /// The second range is for the type records that are directly referenced in symbols
     /// All type records must have a starting leaf index in these first two ranges.
-    /// The third range of leaf indices are used to build up complex lists such as the field
-    /// list of a class type record. No type record can begin with one of the leaf indices.
-    /// The fourth ranges of type indices are used to represent numeric data in a symbol or
-    /// type record. These leaf indices are greater than 0x8000. At the point that type or
-    /// symbol processor is expecting a numeric field, the next two bytes in the type record
-    /// are examined.
+    /// The third range of leaf indices are used to build up complex lists such as the field list of a class
+    /// type record. No type record can begin with one of the leaf indices.
+    /// The fourth ranges of type indices are used to represent numeric data in a symbol or type record. These
+    /// leaf indices are greater than 0x8000. At the point that type or symbol processor is expecting a numeric
+    /// field, the next two bytes in the type record are examined.
     /// If the value is less than 0x8000, then the two bytes contain the numeric value.
-    /// If the value is greater than 0x8000, then the data follows the leaf index in a format
-    /// specified by the leaf index.
-    /// The final range of leaf indices are used to force alignment of subfields within a
-    /// complex type record.</summary>
+    /// If the value is greater than 0x8000, then the data follows the leaf index in a format specified by the
+    /// leaf index.
+    /// The final range of leaf indices are used to force alignment of subfields within a complex type record.
+    /// </summary>
     public enum LeafIndices : ushort
     {
         // leaf indices starting records but referenced from symbol records

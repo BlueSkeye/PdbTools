@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Enumerate : INamedItem, ILeafRecord
+    internal class Enumerate : TypeRecord, INamedItem
     {
         internal _Enumerate _header;
         // variable length value field followed
@@ -10,7 +10,7 @@ namespace PdbReader.Microsoft.CodeView
         internal ulong _enumerationValue;
         internal string _name;
 
-        public LeafIndices LeafKind => LeafIndices.Enumerate;
+        public override LeafIndices LeafKind => LeafIndices.Enumerate;
 
         public string Name => _name;
 

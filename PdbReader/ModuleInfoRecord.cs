@@ -48,11 +48,18 @@ namespace PdbReader
             reader = reader.EnsureAlignment(sizeof(uint));
 
             // Extract some key module info key values.
+            C11ByteSize = _data.C11ByteSize;
+            C13ByteSize = _data.C13ByteSize;
             Offset = _data.SectionContribution.Offset;
             Size = _data.SectionContribution.Size;
             SymbolStreamIndex = _data.ModuleSymStream;
+            SymByteSize = _data.SymByteSize;
             return;
         }
+        
+        public uint C11ByteSize { get; private set; }
+
+        public uint C13ByteSize { get; private set; }
 
 #if DEBUG
         public uint GlobalOffset { get; private set; }
@@ -69,6 +76,8 @@ namespace PdbReader
         public uint Size { get; private set; }
 
         public ushort SymbolStreamIndex { get; private set; }
+
+        public uint SymByteSize { get; private set; }
 
         /// <summary>Create a new <see cref="ModuleInfoRecord"/> from content at current position of the
         /// <paramref name="reader"/></summary>

@@ -3,7 +3,7 @@ using System.Text;
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Enumeration : ILeafRecord
+    internal class Enumeration : TypeRecord
     {
         internal _Enumeration _data;
         internal string _name;
@@ -17,7 +17,7 @@ namespace PdbReader.Microsoft.CodeView
                 ?? throw new ArgumentNullException(nameof(decoratedName));
         }
 
-        public LeafIndices LeafKind => LeafIndices.Enum;
+        public override LeafIndices LeafKind => LeafIndices.Enum;
 
         internal static Enumeration Create(PdbStreamReader reader, ref uint maxLength)
         {

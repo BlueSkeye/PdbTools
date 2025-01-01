@@ -2,11 +2,11 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class UDTModuleSourceLine : ILeafRecord
+    internal class UDTModuleSourceLine : TypeRecord
     {
         private _UDTModuleSourceLine _udtModuleSourceLine;
 
-        public LeafIndices LeafKind => LeafIndices.UDTModuleSourceLine;
+        public override LeafIndices LeafKind => LeafIndices.UDTModuleSourceLine;
 
         // public string Name { get; private set; }
 

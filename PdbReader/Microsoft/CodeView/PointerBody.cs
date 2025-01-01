@@ -5,7 +5,7 @@ namespace PdbReader.Microsoft.CodeView
     /// <summary></summary>
     /// <remarks>Structures are byte aligned. SizeOf(PointerBody) = 10</remarks>
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct PointerBody : ILeafRecord
+    internal class PointerBody : TypeRecord
     {
         private static readonly uint Size = (uint)Marshal.SizeOf<PointerBody>();
 
@@ -14,19 +14,27 @@ namespace PdbReader.Microsoft.CodeView
         internal uint utype;
         internal Attributes attr;
 
-        public LeafIndices LeafKind => LeafIndices.Pointer;
+        public override LeafIndices LeafKind => LeafIndices.Pointer;
 
-        internal static ILeafRecord Create(PdbStreamReader reader, IndexedStream stream, ref uint maxLength)
+        private static PointerBody Create(PdbStreamReader reader, ref uint maxLength)
+        {
+            PointerBody result = new PointerBody() {
+                leaf = (LeafIndices)reader.ReadUInt16(),
+                utype = reader.ReadUInt32(),
+                attr = (Attributes)reader.ReadUInt32()
+            };
+            return result;
+        }
+
+        internal static ITypeRecord Create(PdbStreamReader reader, IndexedStream stream, ref uint maxLength)
         {
             if (Size > maxLength) {
                 throw new PDBFormatException("Invalid record length.");
             }
             uint startOffset = reader.Offset;
-            PointerBody rawBody = reader.Read<PointerBody>();
-            Utils.SafeDecrement(ref maxLength, PointerBody.Size);
+            PointerBody rawBody = PointerBody.Create(reader, ref maxLength);
             if (LeafIndices.Pointer != rawBody.leaf) {
-                throw new PDBFormatException(
-                    $"Invalid leaf identifier {rawBody.leaf} found on pointer body.");
+                throw new PDBFormatException($"Invalid leaf identifier {rawBody.leaf} found on pointer body.");
             }
             CV_ptrtype_e pointerType = rawBody.GetPointerType();
             switch (pointerType) {

@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class TypeBasedPointer : IPointer
+    internal class TypeBasedPointer : TypeRecord, IPointer
     {
         internal PointerBody _body;
         internal uint _index; // type index if CV_PTR_BASE_TYPE (CV_ptrtype_e.TypeBased)
@@ -11,7 +11,7 @@ namespace PdbReader.Microsoft.CodeView
 
         public PointerBody Body => _body;
 
-        public LeafIndices LeafKind => LeafIndices.Pointer;
+        public override LeafIndices LeafKind => LeafIndices.Pointer;
 
         internal static TypeBasedPointer Create(PdbStreamReader reader, PointerBody body,
             ref uint maxLength)

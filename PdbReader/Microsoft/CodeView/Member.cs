@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Member : INamedItem, ILeafRecord
+    internal class Member : TypeRecord, INamedItem
     {
         private const ushort MethodAccessMask = 0x0003;
         private const ushort MethodPropertiesMask = 0x0007;
@@ -13,7 +13,7 @@ namespace PdbReader.Microsoft.CodeView
         // by length prefixed name of field
         internal string _name;
 
-        public LeafIndices LeafKind => LeafIndices.Member;
+        public override LeafIndices LeafKind => LeafIndices.Member;
 
         internal CV_access_e MethodAccess
             => (CV_access_e)((ushort)_member.attr & MethodAccessMask);

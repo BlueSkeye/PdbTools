@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class SegmentBasedPointer : IPointer
+    internal class SegmentBasedPointer : TypeRecord, IPointer
     {
         internal PointerBody _body;
         // base segment if CV_PTR_BASE_SEG
@@ -10,7 +10,7 @@ namespace PdbReader.Microsoft.CodeView
 
         public PointerBody Body => _body;
 
-        public LeafIndices LeafKind => LeafIndices.Pointer;
+        public override LeafIndices LeafKind => LeafIndices.Pointer;
 
         internal static SegmentBasedPointer Create(PdbStreamReader reader, PointerBody rawBody,
             ref uint maxLength)

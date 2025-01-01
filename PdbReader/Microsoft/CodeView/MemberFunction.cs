@@ -2,11 +2,11 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class MemberFunction : ILeafRecord
+    internal class MemberFunction : TypeRecord
     {
         private _MemberFunction _memberFunction;
 
-        public LeafIndices LeafKind => LeafIndices.MFunction;
+        public override LeafIndices LeafKind => LeafIndices.MFunction;
 
         internal static MemberFunction Create(PdbStreamReader reader, ref uint maxLength)
         {

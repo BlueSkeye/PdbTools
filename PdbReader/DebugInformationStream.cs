@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using PdbReader.Microsoft;
 
 namespace PdbReader
@@ -16,7 +15,7 @@ namespace PdbReader
         private ushort? _fixupDataStreamIndex;
         private ushort? _fpoDataStreamIndex;
         private List<SectionMapEntry> _mappedSections;
-        private Dictionary<uint, ModuleInfoRecord> _modulesById;
+        private SortedList<uint, ModuleInfoRecord> _modulesById;
         private ushort? _newFPODataStreamIndex;
         private ushort? _omapFromSourceMappingStreamIndex;
         private ushort? _omapToSourceMappingStreamIndex;
@@ -50,11 +49,9 @@ namespace PdbReader
             }
         }
 
-        private uint EditAndContinueSubstreamOffset
-            => TypeServerMapSubstreamOffset + _header.TypeServerMapSize;
+        private uint EditAndContinueSubstreamOffset => TypeServerMapSubstreamOffset + _header.TypeServerMapSize;
 
-        private uint FileInformationSubstreamOffset
-            => SectionMapSubstreamOffset + _header.SectionMapSize;
+        private uint FileInformationSubstreamOffset => SectionMapSubstreamOffset + _header.SectionMapSize;
 
         /// <summary>Offset within the stream of the module information substream. Always at a fixed offset
         /// immediately after the stream header.</summary>
@@ -68,14 +65,11 @@ namespace PdbReader
 
         /// <summary>Section contribution substream comes after module information substream, the size
         /// of the later being available int the DBI stream header.</summary>
-        private uint SectionContributionSubstreamOffset
-            => ModuleInformationSubstreamOffset + _header.ModInfoSize;
+        private uint SectionContributionSubstreamOffset => ModuleInformationSubstreamOffset + _header.ModInfoSize;
 
-        private uint SectionMapSubstreamOffset
-            => SectionContributionSubstreamOffset + _header.SectionContributionSize;
+        private uint SectionMapSubstreamOffset => SectionContributionSubstreamOffset + _header.SectionContributionSize;
 
-        private uint TypeServerMapSubstreamOffset
-            => FileInformationSubstreamOffset + _header.SourceInfoSize;
+        private uint TypeServerMapSubstreamOffset => FileInformationSubstreamOffset + _header.SourceInfoSize;
 
         private int AssertValidSectionIndex(uint candidate)
         {
@@ -198,7 +192,7 @@ namespace PdbReader
                 return;
             }
             try {
-                _modulesById = new Dictionary<uint, ModuleInfoRecord>();
+                _modulesById = new SortedList<uint, ModuleInfoRecord>();
                 // Set stream position at the begining of the module information substream.
                 uint newOffset = ModuleInformationSubstreamOffset;
                 _reader.Offset = newOffset;
@@ -344,6 +338,14 @@ namespace PdbReader
             return;
         }
 
+        internal IEnumerable<ModuleInfoRecord> EnumerateModules()
+        {
+            EnsureModulesAreLoaded();
+            foreach (ModuleInfoRecord module in _modulesById.Values) {
+                yield return module;
+            }
+        }
+        
         internal ModuleInfoRecord? FindModuleById(uint moduleIdentifier)
         {
             EnsureModulesAreLoaded();

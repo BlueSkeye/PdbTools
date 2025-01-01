@@ -1,4 +1,6 @@
 ﻿
+using PdbReader.Microsoft.CodeView;
+
 namespace PdbReader
 {
     /// <summary>Also known as the TPI stream. Contains Codeview type records.</summary>
@@ -9,7 +11,7 @@ namespace PdbReader
         public TPIStream(Pdb owner)
             : base(owner, ThisStreamIndex)
         {
-            base.LoadRecords();
+            base.LoadRecords(ICodeviewRecord.RecordType.Type);
         }
 
         internal override string StreamName => "TPI";

@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class PointerToMember : IPointer
+    internal class PointerToMember : TypeRecord, IPointer
     {
         internal PointerBody _body;
         // index of containing class for pointer to member
@@ -12,7 +12,7 @@ namespace PdbReader.Microsoft.CodeView
 
         public PointerBody Body => _body;
 
-        public LeafIndices LeafKind => LeafIndices.Pointer;
+        public override LeafIndices LeafKind => LeafIndices.Pointer;
 
         internal static PointerToMember Create(PdbStreamReader reader, PointerBody body,
             ref uint maxLength)

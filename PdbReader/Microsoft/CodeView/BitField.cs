@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class BitField : ILeafRecord
+    internal class BitField : TypeRecord
     {
         internal _BitField _data;
 
@@ -11,7 +11,7 @@ namespace PdbReader.Microsoft.CodeView
             _data = data;
         }
 
-        public LeafIndices LeafKind => LeafIndices.BitField;
+        public override LeafIndices LeafKind => LeafIndices.BitField;
 
         internal static BitField Create(PdbStreamReader reader, ref uint maxLength)
         {

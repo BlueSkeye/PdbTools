@@ -1,14 +1,14 @@
 ﻿
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class VirtualBaseClass : VirtualBaseClassBase, INamedItem, ILeafRecord
+    internal class VirtualBaseClass : VirtualBaseClassBase, INamedItem
     {
         private VirtualBaseClass(_VirtualBaseClass baseClass)
             : base(baseClass)
         {
         }
 
-        public LeafIndices LeafKind => LeafIndices.VBClass;
+        public override LeafIndices LeafKind => LeafIndices.VBClass;
 
         internal static VirtualBaseClass Create(PdbStreamReader reader, ref uint maxLength)
         {

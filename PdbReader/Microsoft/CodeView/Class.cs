@@ -1,14 +1,14 @@
 ﻿
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Class : ClassOrStructureBase, ILeafRecord
+    internal class Class : ClassOrStructureBase
     {
         private Class(_Class @class, ulong structureSize, string name)
             : base(@class, structureSize, name)
         {
         }
 
-        public LeafIndices LeafKind => LeafIndices.Class;
+        public override LeafIndices LeafKind => LeafIndices.Class;
 
         private static ClassOrStructureBase Instanciate(_Class header, ulong structureSize, string itemName)
         {

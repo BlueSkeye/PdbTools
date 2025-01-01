@@ -1,19 +1,23 @@
 ﻿using System.Runtime.InteropServices;
+using static PdbReader.Microsoft.CodeView.Index;
 
 namespace PdbReader.Microsoft.CodeView
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct Label : ILeafRecord
+    internal class Label : TypeRecord
     {
         internal static readonly uint Size = (uint)Marshal.SizeOf<Label>();
         internal LeafIndices leaf; // LF_LABEL
         internal CV_LABEL_TYPE_e mode; // addressing mode of label
 
-        public LeafIndices LeafKind => LeafIndices.Label;
+        public override LeafIndices LeafKind => LeafIndices.Label;
 
-        internal static Label Create(PdbStreamReader reader)
+        internal static Label Create(PdbStreamReader reader, ref uint maxLength)
         {
-            Label result = reader.Read<Label>();
+            Label result = new Label() {
+                leaf = (LeafIndices)reader.ReadUInt16(),
+                mode = (CV_LABEL_TYPE_e)reader.ReadUInt16()
+            };
             return result;
         }
         

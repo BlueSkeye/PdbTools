@@ -2,13 +2,13 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class BaseClass : INamedItem, ILeafRecord
+    internal class BaseClass : TypeRecord, INamedItem
     {
         private _BaseClass _baseClass;
         // unsigned char offset[CV_ZEROLEN];       // variable length offset of base within class
         private ulong _baseClassOffset;
 
-        public LeafIndices LeafKind => LeafIndices.BClass;
+        public override LeafIndices LeafKind => LeafIndices.BClass;
 
         public string Name => INamedItem.NoName;
 

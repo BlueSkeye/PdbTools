@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal abstract class ClassOrStructureBase
+    internal abstract class ClassOrStructureBase : TypeRecord
     {
         internal _Class _class;
         // data describing length of structure in bytes and name

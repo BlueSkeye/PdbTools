@@ -3,7 +3,7 @@
 namespace PdbReader.Microsoft.CodeView
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct FieldList : ILeafRecord
+    internal class FieldList : TypeRecord
     {
         internal LeafIndices _leaf; // LF_FIELDLIST
         // char data[CV_ZEROLEN]; // field list sub lists
@@ -14,7 +14,7 @@ namespace PdbReader.Microsoft.CodeView
             _leaf = leaf;
         }
 
-        public LeafIndices LeafKind => LeafIndices.FieldList;
+        public override LeafIndices LeafKind => LeafIndices.FieldList;
 
         internal static FieldList Create(IndexedStream stream, ref uint maxLength)
         {
@@ -23,7 +23,7 @@ namespace PdbReader.Microsoft.CodeView
             FieldList result = new FieldList((LeafIndices)reader.ReadUInt16());
             Utils.SafeDecrement(ref maxLength, sizeof(ushort));
             while (0 < maxLength) {
-                ILeafRecord memberRecord = stream.LoadRecord(uint.MinValue, ref maxLength);
+                ITypeRecord memberRecord = stream.LoadTypeRecord(uint.MinValue, ref maxLength);
                 result._members.Add((INamedItem)memberRecord);
             }
             if (endOffsetExcluded != reader.Offset) {

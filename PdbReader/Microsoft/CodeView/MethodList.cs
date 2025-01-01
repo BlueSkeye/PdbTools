@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class MethodList : ILeafRecord
+    internal class MethodList : TypeRecord
     {
         internal LeafIndices _leaf; // LF_METHODLIST
         // char data[CV_ZEROLEN]; // field list sub lists
@@ -13,7 +13,7 @@ namespace PdbReader.Microsoft.CodeView
             _leaf = leaf;
         }
 
-        public LeafIndices LeafKind => LeafIndices.MethodList;
+        public override LeafIndices LeafKind => LeafIndices.MethodList;
 
         internal static MethodList Create(IndexedStream stream, ref uint maxLength)
         {

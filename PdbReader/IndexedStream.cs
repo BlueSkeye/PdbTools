@@ -24,7 +24,7 @@ namespace PdbReader
 
         internal abstract string StreamName { get; }
 
-        internal virtual object LoadLengthPrefixedRecord(uint recordIdentifier)
+        private object LoadLengthPrefixedRecord(uint recordIdentifier, ICodeviewRecord.RecordType type)
         {
             // This is a special case. When no more bytes remain on the block, the first
             // read below will modify the global offset BEFORE reading the first byte.
@@ -40,26 +40,35 @@ namespace PdbReader
             IStreamGlobalOffset recordEndGlobalOffsetExcluded = 
                 recordStartGlobalOffset.Add(recordTotalLength);
             uint recordEndOffsetExcluded = recordStartOffset + recordTotalLength;
-            ILeafRecord result = LoadRecord(recordIdentifier, ref recordLength);
+            ICodeviewRecord result;
+            switch (type) {
+                case ICodeviewRecord.RecordType.Type:
+                    result = LoadTypeRecord(recordIdentifier, ref recordLength);
+                    break;
+                case ICodeviewRecord.RecordType.Symbol:
+                    throw new NotImplementedException();
+                default:
+                    throw new BugException();
+            }
             IStreamGlobalOffset currentGlobalOffset = _reader.GetGlobalOffset();
             uint currentOffset = _reader.Offset;
             if (currentOffset < recordEndOffsetExcluded) {
                 uint ignoredBytesCount = recordEndOffsetExcluded - currentOffset;
                 bool doNotWarnOnReset = false;
                 if (sizeof(uint) <= ignoredBytesCount) {
-                    // Emit warning when extra bytes count is greater or equal to word size
+                    // Emit warning when extra bytes count is greater or equal to doubleword size
                     // or if extra bytes are not explictly allowed.
                     // This should be an incomplete decoding indicator.
                     // NOTICE : This is an heuristic which is not supported by official source
                     // code evidences.
                     Console.WriteLine(
-                        $"WARN : {result.LeafKind} record #{recordIdentifier} starting at 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
+                        $"WARN : Record #{recordIdentifier} starting at 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
                         $"Should have ended at 0x{recordEndGlobalOffsetExcluded.Value:X8}/{recordEndOffsetExcluded} : {ignoredBytesCount} bytes ignored.");
                 }
                 else {
                     doNotWarnOnReset = true;
                     if (_owner.FullDecodingDebugEnabled) {
-                        Console.WriteLine($"DBG : {result.LeafKind} record #{recordIdentifier} fully decoded.");
+                        Console.WriteLine($"DBG : {result.Type} record #{recordIdentifier} fully decoded.");
                     }
                 }
                 // Adjust reader position.
@@ -69,21 +78,21 @@ namespace PdbReader
                 // 
                 uint excessBytesCount = currentOffset - recordEndOffsetExcluded;
                 Console.WriteLine(
-                    $"WARN : {result.LeafKind} record #{recordIdentifier} starting 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
+                    $"WARN : {result.Type} record #{recordIdentifier} starting 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
                     $"Should have ended at 0x{recordEndGlobalOffsetExcluded.Value:X8}/{recordEndOffsetExcluded} : consumed {excessBytesCount} bytes in excess");
                 // Adjust reader position.
                 _reader.SetGlobalOffset(recordEndGlobalOffsetExcluded);
             }
             else if (currentOffset == recordEndOffsetExcluded) {
                 if (_owner.FullDecodingDebugEnabled) {
-                    Console.WriteLine($"DBG : {result.LeafKind} record #{recordIdentifier} fully decoded.");
+                    Console.WriteLine($"DBG : {result.Type} record #{recordIdentifier} fully decoded.");
                 }
             }
             else { throw new BugException(); }
             return result;
         }
 
-        internal virtual ILeafRecord LoadRecord(uint recordIdentifier, ref uint recordLength)
+        internal virtual ITypeRecord LoadTypeRecord(uint recordIdentifier, ref uint recordLength)
         {
             // Most if not all definitions are from CVINFO.H
             LeafIndices recordKind = (LeafIndices)_reader.PeekUInt16();
@@ -113,8 +122,7 @@ namespace PdbReader
                 case LeafIndices.Index:
                     return Microsoft.CodeView.Index.Create(_reader, ref recordLength);
                 case LeafIndices.Label:
-                    try { return _reader.Read<Label>(); }
-                    finally { recordLength -= Label.Size; }
+                    return Microsoft.CodeView.Label.Create(_reader, ref recordLength);
                 case LeafIndices.Member:
                     return Member.Create(_reader, ref recordLength);
                 case LeafIndices.Method:
@@ -126,8 +134,7 @@ namespace PdbReader
                 case LeafIndices.MFunctionIdentifier:
                     return MemberFunctionIdentifier.Create(_reader, ref recordLength);
                 case LeafIndices.Modifier:
-                    try { return _reader.Read<Modifier>(); }
-                    finally { recordLength -= Modifier.Size; }
+                    return Microsoft.CodeView.Modifier.Create(_reader, ref recordLength);
                 case LeafIndices.NestedType:
                     return NestedType.Create(_reader, ref recordLength);
                 case LeafIndices.OneMethod:
@@ -136,8 +143,7 @@ namespace PdbReader
                     // Remaining bytes may be present that are name chars related.
                     return PointerBody.Create(_reader, this, ref recordLength);
                 case LeafIndices.Procedure:
-                    try { return _reader.Read<Procedure>(); }
-                    finally { recordLength -= Procedure.Size; }
+                    return Microsoft.CodeView.Procedure.Create(_reader, ref recordLength);
                 case LeafIndices.STMember:
                     return StaticMember.Create(_reader, ref recordLength);
                 case LeafIndices.StringIdentifier:
@@ -175,16 +181,23 @@ namespace PdbReader
             }
         }
 
-        public virtual void LoadRecords()
+        internal virtual void LoadRecords(ICodeviewRecord.RecordType type)
         {
-            Console.WriteLine($"Loading {StreamName} stream records.");
+            switch (type) {
+                case ICodeviewRecord.RecordType.Type:
+                case ICodeviewRecord.RecordType.Symbol:
+                    break;
+                default:
+                    throw new ArgumentException($"Invalid '{type}' record type");
+            }
+            Console.WriteLine($"Loading {StreamName} stream '{type}'records.");
             uint recordsCount = RecordsCount;
             uint totalRecordBytes = _header.TypeRecordBytes;
             uint offset = 0;
             uint recordIndex = 0;
             while (offset < totalRecordBytes) {
                 uint startOffset = _reader.Offset;
-                LoadLengthPrefixedRecord(recordIndex);
+                LoadLengthPrefixedRecord(recordIndex, type);
                 uint deltaOffset = _reader.Offset - startOffset;
                 if (0 == deltaOffset) {
                     throw new BugException();

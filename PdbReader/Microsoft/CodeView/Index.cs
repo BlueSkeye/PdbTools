@@ -2,17 +2,16 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Index : INamedItem, ILeafRecord
+    internal class Index : TypeRecord, INamedItem
     {
         private const string ConstantName = "Index";
         internal _Index _data { get; private set; }
 
-        public LeafIndices LeafKind => LeafIndices.Index;
+        public override LeafIndices LeafKind => LeafIndices.Index;
 
         public string Name => ConstantName;
 
-        internal static Index Create(PdbStreamReader reader,
-            ref uint maxLength)
+        internal static Index Create(PdbStreamReader reader, ref uint maxLength)
         {
             Index result = new Index() {
                 _data = reader.Read<_Index>()

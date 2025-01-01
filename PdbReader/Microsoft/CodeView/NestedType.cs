@@ -2,11 +2,11 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class NestedType : INamedItem, ILeafRecord
+    internal class NestedType : TypeRecord, INamedItem
     {
         private _NestedType _nestedType;
 
-        public LeafIndices LeafKind => LeafIndices.NestedType;
+        public override LeafIndices LeafKind => LeafIndices.NestedType;
 
         public string Name { get; private set; }
 

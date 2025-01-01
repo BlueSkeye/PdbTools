@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class VirtualFunctionTable : ILeafRecord
+    internal class VirtualFunctionTable : TypeRecord
     {
         internal _VirtualFunctionTable _data;
         //unsigned char Names[1]; // array of names.
@@ -13,7 +13,7 @@ namespace PdbReader.Microsoft.CodeView
 
         internal List<string> _names;
 
-        public LeafIndices LeafKind => LeafIndices.VirtualFunctionTable;
+        public override LeafIndices LeafKind => LeafIndices.VirtualFunctionTable;
 
         private VirtualFunctionTable(_VirtualFunctionTable data)
         {

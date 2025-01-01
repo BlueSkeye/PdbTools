@@ -2,7 +2,7 @@
 
 namespace PdbReader.Microsoft.CodeView
 {
-    internal class Union : INamedItem, ILeafRecord
+    internal class Union : TypeRecord, INamedItem
     {
         internal _Union _data;
         // variable length data describing length of structure and name
@@ -10,7 +10,7 @@ namespace PdbReader.Microsoft.CodeView
         internal string _name;
         internal string _decoratedName;
 
-        public LeafIndices LeafKind => LeafIndices.Union;
+        public override LeafIndices LeafKind => LeafIndices.Union;
 
         public string Name => _name;
 
