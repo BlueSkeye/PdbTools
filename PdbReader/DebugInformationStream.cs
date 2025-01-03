@@ -102,27 +102,29 @@ namespace PdbReader
             EnsureFileMappingAreLoaded();
             // TODO : Other substreams exist that we could consider loading :
             // Type server map, EC, Optional debug header.
-            foreach (ModuleInfoRecord scannedModule in _modulesById.Values) {
-                scannedModule.Dump(into, moduleIndex++, subPrefix);
-                Console.WriteLine($"{prefix}Module #{scannedModule.Index}.");
-                uint scannedModuleId = scannedModule.Index;
-                Dictionary<ushort, SortedMemoryRangeList<MemoryRange>> perSectionRanges;
-                if (!_perModuleIndexSectionRanges.TryGetValue(Utils.SafeCastToUint32(scannedModuleId),
-                    out perSectionRanges))
-                {
-                    Console.WriteLine($"{sectionPrefix}No contribution found for this module.");
-                    continue;
-                }
-                foreach (ushort sectionId in perSectionRanges.Keys) {
-                    Console.WriteLine($"{sectionPrefix}Section {sectionId}");
-                    List<SectionContributionEntry>? sectionEntries =
-                        scannedModule.GetSectionContributionsById(sectionId);
-                    SortedMemoryRangeList<MemoryRange> ranges = perSectionRanges[sectionId];
-                    foreach (MemoryRange range in ranges.Keys) {
-                        Console.WriteLine($"{sectionPrefix}\t0x{range._startOffset:X8} - 0x{range._endOffset:X8}");
-                    }
-                }
-            }
+
+            // TODO : Transform this output into a per section one.
+            //foreach (ModuleInfoRecord scannedModule in _modulesById.Values) {
+            //    scannedModule.Dump(into, moduleIndex++, subPrefix);
+            //    Console.WriteLine($"{prefix}Module #{scannedModule.Index}.");
+            //    uint scannedModuleId = scannedModule.Index;
+            //    Dictionary<ushort, SortedMemoryRangeList<MemoryRange>> perSectionRanges;
+            //    if (!_perModuleIndexSectionRanges.TryGetValue(Utils.SafeCastToUint32(scannedModuleId),
+            //        out perSectionRanges))
+            //    {
+            //        Console.WriteLine($"{sectionPrefix}No contribution found for this module.");
+            //        continue;
+            //    }
+            //    foreach (ushort sectionId in perSectionRanges.Keys) {
+            //        Console.WriteLine($"{sectionPrefix}Section {sectionId}");
+            //        List<SectionContributionEntry>? sectionEntries =
+            //            scannedModule.GetSectionContributionsById(sectionId);
+            //        SortedMemoryRangeList<MemoryRange> ranges = perSectionRanges[sectionId];
+            //        foreach (MemoryRange range in ranges.Keys) {
+            //            Console.WriteLine($"{sectionPrefix}\t0x{range._startOffset:X8} - 0x{range._endOffset:X8}");
+            //        }
+            //    }
+            //}
             return;
         }
 
@@ -211,7 +213,7 @@ namespace PdbReader
                     ModuleInfoRecord scannedModule = ModuleInfoRecord.Create(_reader,
                         Utils.SafeCastToUint32(moduleIndex));
                     // scannedModule.Dump(Console.Out, moduleIndex, "");
-                    if (ushort.MaxValue != scannedModule.SymbolStreamIndex) {
+                    if (scannedModule.HasSymbolStream) {
                         try { new PdbStreamReader(_owner, scannedModule.SymbolStreamIndex); }
                         catch {
                             string warningMessage =

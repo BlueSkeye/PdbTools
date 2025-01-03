@@ -4,7 +4,6 @@ using System.Text;
 
 namespace LibProvider.COFF
 {
-    // [StructLayout(LayoutKind.Explicit)]
     internal class IMAGE_RELOCATION_ENTRY
     {
         /// <summary>The address of the item to which relocation is applied. This is the offset from

@@ -103,10 +103,8 @@ namespace PdbReader
 
         internal PdbStreamReader EnsureAlignment(uint modulo)
         {
-            uint delta = (this.Offset % modulo);
-            if (0 < delta) {
-                this.Offset += (modulo - delta);
-            }
+            uint delta = ((modulo - (this.Offset % modulo)) % modulo);
+            this.Offset += delta;
             return this;
         }
 
@@ -426,31 +424,31 @@ namespace PdbReader
                 return firstWord;
             }
             // The first word is the value type.
-            switch ((LeafIndices)firstWord) {
-                case LeafIndices.Character:
+            switch ((TypeKind)firstWord) {
+                case TypeKind.Character:
                     consumedBytes = sizeof(ushort) + sizeof(byte);
                     return (ulong)ReadByte();
-                case LeafIndices.Integer:
+                case TypeKind.Integer:
                     consumedBytes = sizeof(ushort) + sizeof(uint);
                     return (ulong)ReadUInt32();
-                case LeafIndices.LongInteger:
+                case TypeKind.LongInteger:
                     consumedBytes = sizeof(ushort) + sizeof(ulong);
                     return (ulong)ReadUInt64();
-                case LeafIndices.Real128Bits:
+                case TypeKind.Real128Bits:
                     consumedBytes = sizeof(ushort) + 16;
                     byte[] real128BitsResult = new byte[16];
                     ReadArray<byte>(real128BitsResult, ReadByte);
                     return real128BitsResult;
-                case LeafIndices.Short:
+                case TypeKind.Short:
                     consumedBytes = sizeof(ushort) + sizeof(ushort);
                     return (ulong)ReadUInt16();
-                case LeafIndices.UnsignedInteger:
+                case TypeKind.UnsignedInteger:
                     consumedBytes = sizeof(ushort) + sizeof(uint);
                     return (ulong)ReadUInt32();
-                case LeafIndices.UnsignedLongInteger:
+                case TypeKind.UnsignedLongInteger:
                     consumedBytes = sizeof(ushort) + sizeof(ulong);
                     return (ulong)ReadUInt64();
-                case LeafIndices.UnsignedShort:
+                case TypeKind.UnsignedShort:
                     consumedBytes = sizeof(ushort) + sizeof(ushort);
                     return (ulong)ReadUInt16();
                 //case LEAF_ENUM_e.LongInteger:
@@ -458,7 +456,7 @@ namespace PdbReader
                 //case LEAF_ENUM_e.UnsignedLongInteger:
                 //    return (long)ReadUInt64();
                 default:
-                    if (CodeViewUtils.IsValidBuiltinType((LeafIndices)firstWord)) {
+                    if (CodeViewUtils.IsValidBuiltinType((TypeKind)firstWord)) {
                         throw new NotSupportedException(
                             $"Unsupported builtin type identifier 0x{firstWord:X4}.");
                     }

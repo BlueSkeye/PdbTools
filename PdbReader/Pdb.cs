@@ -227,14 +227,16 @@ namespace PdbReader
             result._tpiStream = new TPIStream(result);
             result._dbiStream = new DebugInformationStream(result);
             result.EnsureStringPoolBuffering();
+            int noSymbolModuleCount = 0;
             foreach (ModuleInfoRecord moduleInfo in result._dbiStream.EnumerateModules()) {
+                if (!moduleInfo.HasSymbolStream) {
+                    noSymbolModuleCount++;
+                    continue;
+                }
                 new ModuleInformationStream(result, moduleInfo.SymbolStreamIndex, moduleInfo.SymByteSize,
                     moduleInfo.C11ByteSize, moduleInfo.C13ByteSize);
-                PdbStreamReader moduleStreamReader = new PdbStreamReader(result, moduleInfo.SymbolStreamIndex);
             }
-            throw new NotImplementedException();
-            // TODO : Walk each module stream, using information from _dbiStream and load codeview symbol
-            // records for the given module.
+            Console.WriteLine($"INFO : {noSymbolModuleCount} symbol less modules found.");
             return result;
         }
         

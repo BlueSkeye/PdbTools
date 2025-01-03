@@ -4,14 +4,14 @@ using PdbReader.Microsoft.CodeView;
 namespace PdbReader
 {
     /// <summary>Also known as the TPI stream. Contains Codeview type records.</summary>
-    public class TPIStream : IndexedStream
+    internal class TPIStream : TypeIndexedStream
     {
         private const ushort ThisStreamIndex = 2;
 
-        public TPIStream(Pdb owner)
+        internal TPIStream(Pdb owner)
             : base(owner, ThisStreamIndex)
         {
-            base.LoadRecords(ICodeviewRecord.RecordType.Type);
+            base.LoadTypeRecords();
         }
 
         internal override string StreamName => "TPI";

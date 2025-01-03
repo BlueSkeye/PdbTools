@@ -6,13 +6,31 @@ object file (.obj) and/or static libraries (.lib). At the same time, the linker 
 file and may set a reference to it in the PE file which eases PDB retrieval from a central repository
 such as Microsoft symbol servers.
 Each objet file taken into account by the linker for PE building is considered a module in the PDB
-parlance. The PDB provides information about both these modules and symbols within them.
-
-PDB structure
-=============
+parlance. The PDB provides information about both these modules and symbols within them as well as
+symbol types.
 NOTE : Brackets surronded names are those classes that implement the concept desribed in the sentence
 they are embedded into.
 
+Symbol types
+============
+Symbol types are found in the IP, TPI and PSS streams (see below).
+Classes for symbol types are in the PdbReader.Microsoft.Codeview.Types namespace. All of them implement
+the [ITypeRecord] interface. Each type is of a predefined kind a list of which can be found in [TypeKind]
+enumeration with their wellknown identifier.
+NOTE : The type kind is also referenced in the litterature as "leaf indices".
+Each type also has a unique identifier known as type indice or type index. A bunch of scalar types having
+constant unique identifiers amongst every PDB files are predefined. They can be found in [TBD].
+
+Symbols
+=======
+Symbol are found in the Mod*i and PSS streams (see below).
+Classes for symbols are in the PdbReader.Microsoft.Codeview.Symbolss namespace. All of them implement
+the [ISymbolRecord] interface.
+Some symbols have an associated type, index or ID of which is to be found in a field of the class used for
+this symbol definition. The corresponding type is defined either in the TPI or IPI stream. 
+
+PDB structure
+=============
 A PDB is a collection of streams, each of which is a collection of not necessarily adjacents fixed
 size blocks also called pages. At the very beginning of the PDB (block 0) is a fixed size header
 [MSFSuperBlock] from which to find the common block size. This block is read at [Pdb] instanciation
@@ -34,12 +52,39 @@ to a specific position in the stream without having to bother with stream block 
 Debug Info Stream (DBI)
 =======================
 This stream is read at [Pdb] creation time.
+The stream contains a collection of [ModuleInfoRecord] entries, each of which describes a single module
+- roughly an .obj file - participating in the building of the .exe/.dll described by the PDB file.
+[ModuleInfoRecord.SymbolStreamIndex], if defined, contains the index of the Mod*i (see below) stream
+containing symbols frm this module.
+The [DbiStreamHeader.PublicStreamIndex] is the index of the PSS stream (see below).
 
 Public Symbol Stream (PSS)
 ==========================
 This stream contains records for each public (exported) symbol. The index of this stream can be found in
 [DBIStreamHeader.PublicStreamIndex]. Access to this stream content is implemented in [PublicSymbolStream].
 A PdbReader client must first invoke [Pdb.InitializeSymbolsMap] that will take care of loading the PSS.
+Technically, this stream content is a deduplicated version of the merge of every Mod*i (see below) streams.
+
+The TPI stream
+==============
+This stream contains type definitions. Types, other than the predefined ones are layed out in increasing
+type index value.
+A type may reference one or more other types. The TPI stream is supposed to be in a quasi strict order
+where each refered type has a lower type index than the refering type.
+
+The IPI stream
+==============
+Same structure as the TPI stream. Unclear what makes a type being in one or the other.
+
+The Mod*i streams
+=================
+Each module defined in the DBI stream that define at least one symbol has a corresponding stream defining
+those symbols. The index of the Mod*i stream is found in the corresponding [ModuleInfoRecord.SymbolStreamIndex]
+within the DBI stream.
+
+Hash streams
+============
+Not mandatory. Not implemented yet. To be considered for compatibility and performance reasons.
 
 Free Map Page (FMP)
 ===================
@@ -83,5 +128,3 @@ See also
 llvm-pdbutil tool dump command
 https://llvm.org/docs/CommandGuide/llvm-pdbutil.html#cmdoption-llvm-pdbutil-dump-symbols
 Main source code : https://github.com/llvm-mirror/llvm/blob/master/tools/llvm-pdbutil/llvm-pdbutil.cpp
-
-

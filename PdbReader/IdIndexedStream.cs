@@ -2,7 +2,7 @@
 namespace PdbReader
 {
     /// <summary>Also known as the IPI stream.</summary>
-    public class IdIndexedStream : IndexedStream
+    internal class IdIndexedStream : TypeIndexedStream
     {
         private const ushort ThisStreamIndex = 4;
 
@@ -11,11 +11,9 @@ namespace PdbReader
         {
         }
 
-        public static IdIndexedStream Create(Pdb owner)
+        internal static IdIndexedStream? Create(Pdb owner)
         {
-            return owner.IsNonEmptyStream(ThisStreamIndex)
-                ? new IdIndexedStream(owner)
-                : null;
+            return owner.IsNonEmptyStream(ThisStreamIndex) ? new IdIndexedStream(owner) : null;
         }
 
         internal override string StreamName => "IPI";

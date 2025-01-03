@@ -1,5 +1,4 @@
-﻿
-namespace PdbReader.Microsoft.CodeView
+﻿namespace PdbReader.Microsoft.CodeView
 {
     internal abstract class SymbolRecord : ICodeviewRecord
     {

@@ -1,4 +1,7 @@
 ﻿
+using PdbReader.Microsoft.CodeView.Enumerations;
+using PdbReader.Microsoft.CodeView.Types;
+
 namespace PdbReader.Microsoft.CodeView
 {
     internal static class CodeViewUtils
@@ -35,40 +38,40 @@ namespace PdbReader.Microsoft.CodeView
             return (CV_ptrtype_e)(((uint)attributes & PointerTypeMask) >> PointerTypeShift);
         }
 
-        internal static bool IsBuiltinType(LeafIndices candidate)
+        internal static bool IsBuiltinType(TypeKind candidate)
         {
             return (0 != (0x8000 & (ushort)candidate));
         }
 
-        internal static bool IsValidBuiltinType(LeafIndices candidate)
+        internal static bool IsValidBuiltinType(TypeKind candidate)
         {
             if (!IsBuiltinType(candidate)) {
                 return false;
             }
             switch (candidate) {
-                case LeafIndices.Character:
-                case LeafIndices.Short:
-                case LeafIndices.UnsignedShort:
-                case LeafIndices.Integer:
-                case LeafIndices.UnsignedInteger:
-                case LeafIndices.Real32Bits:
-                case LeafIndices.Real64Bits:
-                case LeafIndices.Real80Bits:
-                case LeafIndices.Real128Bits:
-                case LeafIndices.LongInteger:
-                case LeafIndices.UnsignedLongInteger:
-                case LeafIndices.Real48Bits:
-                case LeafIndices.Complex32Bits:
-                case LeafIndices.Complex64Bits:
-                case LeafIndices.Complex80Bits:
-                case LeafIndices.Complex128Bits:
-                case LeafIndices.VariableLengthString:
-                case LeafIndices.OctalWord:
-                case LeafIndices.UnsignedOctalWord:
-                case LeafIndices.Decimal:
-                case LeafIndices.Date:
-                case LeafIndices.UTF8String:
-                case LeafIndices.Real16Bits:
+                case TypeKind.Character:
+                case TypeKind.Short:
+                case TypeKind.UnsignedShort:
+                case TypeKind.Integer:
+                case TypeKind.UnsignedInteger:
+                case TypeKind.Real32Bits:
+                case TypeKind.Real64Bits:
+                case TypeKind.Real80Bits:
+                case TypeKind.Real128Bits:
+                case TypeKind.LongInteger:
+                case TypeKind.UnsignedLongInteger:
+                case TypeKind.Real48Bits:
+                case TypeKind.Complex32Bits:
+                case TypeKind.Complex64Bits:
+                case TypeKind.Complex80Bits:
+                case TypeKind.Complex128Bits:
+                case TypeKind.VariableLengthString:
+                case TypeKind.OctalWord:
+                case TypeKind.UnsignedOctalWord:
+                case TypeKind.Decimal:
+                case TypeKind.Date:
+                case TypeKind.UTF8String:
+                case TypeKind.Real16Bits:
                     return true;
                 default:
                     return false;

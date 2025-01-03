@@ -3,7 +3,9 @@ namespace PdbReader.Microsoft.CodeView
 {
     internal interface ISymbolRecord : ICodeviewRecord
     {
+        SymbolStream.SymbolKind Kind { get; }
 
-        new ICodeviewRecord.RecordType Type => RecordType.Symbol;
+        // Default implementation.
+        ICodeviewRecord.RecordType ICodeviewRecord.Type => ICodeviewRecord.RecordType.Symbol;
     }
 }

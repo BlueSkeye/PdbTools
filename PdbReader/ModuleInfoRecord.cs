@@ -65,6 +65,9 @@ namespace PdbReader
         public uint GlobalOffset { get; private set; }
 #endif
 
+        /// <summary>A minus one symbol stream index is not a valid stream index.</summary>
+        internal bool HasSymbolStream => (ushort.MaxValue != SymbolStreamIndex);
+
         public uint Index { get; private set; }
 
         public string ModuleName { get; private set; }
@@ -75,6 +78,7 @@ namespace PdbReader
 
         public uint Size { get; private set; }
 
+        /// <remarks>DO NOT USE if <see cref="HasSymbolStream"/> is false.</remarks>
         public ushort SymbolStreamIndex { get; private set; }
 
         public uint SymByteSize { get; private set; }
