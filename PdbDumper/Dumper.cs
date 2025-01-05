@@ -55,6 +55,45 @@ namespace PdbDumper
             }
         }
 
+
+        private static int DumpGlobalSymbols()
+        {
+            Pdb.TraceFlags traceFlags =
+                0
+                // | Pdb.TraceFlags.FullDecodingDebug
+                // | Pdb.TraceFlags.StreamDirectoryBlocks
+                ;
+            IPdb? pdb = Pdb.Create(_inputPdb,  traceFlags, false);
+            if (null == pdb) {
+                Console.WriteLine($"ERROR : Unable to open PDB.");
+                return 1;
+            }
+            pdb.EnsureGlobalStreamIsLoaded();
+            //using (StreamWriter writer = new StreamWriter(File.OpenWrite(_outputFile.FullName))) {
+            //    pdb.DumpGlobalSymbols(writer);
+            //    return 0;
+            //}
+            return 0;
+        }
+
+        private static int DumpPublicSymbols()
+        {
+            Pdb.TraceFlags traceFlags =
+                0
+                // | Pdb.TraceFlags.FullDecodingDebug
+                // | Pdb.TraceFlags.StreamDirectoryBlocks
+                ;
+            IPdb? pdb = Pdb.Create(_inputPdb,  traceFlags, false);
+            if (null == pdb) {
+                Console.WriteLine($"ERROR : Unable to open PDB.");
+                return 1;
+            }
+            using (StreamWriter writer = new StreamWriter(File.OpenWrite(_outputFile.FullName))) {
+                pdb.DumpPublicSymbols(writer);
+                return 0;
+            }
+        }
+
         private static int EnumerateFiles()
         {
             Pdb.TraceFlags traceFlags =
@@ -187,6 +226,10 @@ namespace PdbDumper
                     return EnumerateFiles();
                 case Verb.DBIDump:
                     return DBIDump(_hexadump);
+                case Verb.DumpGlobalSymbols:
+                    return DumpGlobalSymbols();
+                case Verb.DumpPublicSymbols:
+                    return DumpPublicSymbols();
                 case Verb.Explain:
                     return Explain();
                 default:
@@ -200,7 +243,8 @@ namespace PdbDumper
                 return false;
             }
             DirectoryInfo root;
-            switch (args[0].ToLower()) {
+            string scannedToken = args[0].ToLower();
+            switch (scannedToken) {
                 case "-cache":
                     if (2 > args.Length) {
                         Console.WriteLine("Executable file name is missing.");
@@ -270,6 +314,41 @@ namespace PdbDumper
                     }
                     _allFiles = WalkDirectory(root, new string[] { ".dll", ".exe", ".sys" });
                     _verb = Verb.Enumerate;
+                    break;
+                case "-dumpgsyms":
+                case "-dumppsyms":
+                    if (2 > args.Length) {
+                        Console.WriteLine("Target PDB file name is missing.");
+                        return false;
+                    }
+                    _inputPdb = new FileInfo(args[1]);
+                    if (!_inputPdb.Exists) {
+                        Console.WriteLine(
+                            $"PDB file {_inputPdb.FullName} doesn't exist.");
+                        return false;
+                    }
+                    if (3 > args.Length) {
+                        Console.WriteLine("Output file name is missing.");
+                        return false;
+                    }
+                    _outputFile = new FileInfo(args[2]);
+#if !DEBUG
+                    if (_outputFile.Exists) {
+                        Console.WriteLine(
+                            $"Output file {_outputFile.FullName} already exist.");
+                        return false;
+                    }
+#endif
+                    switch(scannedToken) {
+                        case "-dumpgsyms":
+                            _verb = Verb.DumpGlobalSymbols;
+                            break;
+                        case "-dumppsyms":
+                            _verb = Verb.DumpPublicSymbols;
+                            break;
+                        default:
+                            throw new ApplicationException("BUG");
+                    }
                     break;
                 case "-explain":
                     if (2 > args.Length) {
@@ -399,6 +478,8 @@ namespace PdbDumper
             Undefined = 0,
             Cache,
             DBIDump,
+            DumpGlobalSymbols,
+            DumpPublicSymbols,
             Enumerate,
             Explain
         }

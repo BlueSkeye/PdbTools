@@ -18,22 +18,15 @@ namespace PdbReader.Microsoft.CodeView.Types
             _VirtualTableShape data = reader.Read<_VirtualTableShape>();
             Utils.SafeDecrement(ref maxLength, _VirtualTableShape.Size);
             byte inputByte = 0;
-            for (int index = 0; index < data.count; index++)
-            {
+            for (int index = 0; index < data.count; index++) {
                 CV_VTS_desc_e entry = 0;
-                if (0 == index % 2)
-                {
+                if (0 == index % 2) {
                     inputByte = reader.ReadByte();
                     Utils.SafeDecrement(ref maxLength, sizeof(byte));
                     entry = (CV_VTS_desc_e)(inputByte & 0x0F);
                 }
-                else
-                {
+                else {
                     entry = (CV_VTS_desc_e)((inputByte & 0xF0) >> 4);
-                }
-                if (CV_VTS_desc_e.Unused == entry)
-                {
-                    throw new PDBFormatException("May be");
                 }
             }
             // Some virtual table shapes appear to have padding bytes.

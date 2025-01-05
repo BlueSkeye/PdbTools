@@ -14,6 +14,7 @@ namespace PdbReader
         /// Moreover both the map and the count are not initialized unless strict checks areenabled.</summary>
         private uint _blockMapBlocksCount = 0;
         private DebugInformationStream _dbiStream;
+        private PdbFeatureCodes[] _featureCodes;
         /// <summary>This member is only valid for a short period of time during object initialization.
         /// Moreover both the map and the count are not initialized unless strict checks areenabled.</summary>
         private bool[]? _freeBlockMaps = null;
@@ -29,7 +30,7 @@ namespace PdbReader
         /// that make the given stream.</summary>
         private List<List<uint>> _streamDescriptors = new List<List<uint>>();
         private Dictionary<string, uint> _streamIndexByName;
-        private uint[] _streamSizes;
+        private uint[] _streamBytesSizes;
         private bool _strictChecksEnabled;
         private readonly MSFSuperBlock _superBlock;
         private TPIStream _tpiStream;
@@ -87,11 +88,15 @@ namespace PdbReader
             set { _strictChecksEnabled = value; }
         }
 
+        /// <summary>Retrieve the index of the mandatory "/names" stream containing global strings.</summary>
         public uint StringPoolStreamIndex
         {
             get
             {
                 uint result;
+                if (null == _streamIndexByName) {
+                    throw new BugException("Named stream map not yet loaded.");
+                }
                 if (!_streamIndexByName.TryGetValue(StringPoolStreamName, out result)) {
                     throw new PDBFormatException(
                         $"Mandatory stream '{StringPoolStreamName}' not found.");
@@ -108,6 +113,13 @@ namespace PdbReader
                 throw new BugException("DBI stream should have been instantiated.");
             }
             return;
+        }
+
+        private void AssertStreamDescriptorsAreAvailable()
+        {
+            if ((null == _streamDescriptors) || (null == _streamBytesSizes)) {
+                throw new BugException("Stream descriptors are not yet available.");
+            }
         }
 
         internal void AssertValidStreamNumber(ushort? candidate, bool nonExistingIsValid = true)
@@ -134,12 +146,7 @@ namespace PdbReader
             if (null == _freeBlockMaps) {
                 throw new InvalidOperationException();
             }
-            if (null == _streamSizes) {
-                throw new InvalidOperationException();
-            }
-            if (null == _streamDescriptors) {
-                throw new InvalidOperationException();
-            }
+            AssertStreamDescriptorsAreAvailable();
             // .. as well as those Free Block Maps blocks effectively used.
             uint totalBlocksCount = (uint)(1U + (uint)(((ulong)((ulong)_mappedPdbView.Capacity - 1UL)) / (ulong)_superBlock.BlockSize));
             uint perFreeBlockMapBlocksCount = 8 * _superBlock.BlockSize;
@@ -187,7 +194,8 @@ namespace PdbReader
         }
 
         /// <summary>Create a <see cref="Pdb"/> object from the content of the given <paramref name="target"/>
-        /// file.</summary>
+        /// file. On return the PDB stream, the DBI stream, the TPI stream and the "/names" stream will have
+        /// been loaded and their content cached.</summary>
         /// <param name="target">Input file.</param>
         /// <param name="traceFlags">A combination of trace flags to use for débugging/diagnostic purpose
         /// while parsing file content.</param>
@@ -226,7 +234,7 @@ namespace PdbReader
             result.LoadPdbStream();
             result._tpiStream = new TPIStream(result);
             result._dbiStream = new DebugInformationStream(result);
-            result.EnsureStringPoolBuffering();
+            result.EnsureNamesStreamIsLoaded();
             int noSymbolModuleCount = 0;
             foreach (ModuleInfoRecord moduleInfo in result._dbiStream.EnumerateModules()) {
                 if (!moduleInfo.HasSymbolStream) {
@@ -270,14 +278,27 @@ namespace PdbReader
                 DBIHexaDump(writer, reader);
             }
             else {
-                DebugInformationStream dbiStream = new DebugInformationStream(this);
-                try { dbiStream.Dump(writer); }
+                try { _dbiStream.Dump(writer); }
                 finally { writer.Flush(); }
             }
             return;
         }
 
-        private void EnsureStringPoolBuffering()
+        public void DumpPublicSymbols(StreamWriter outputStream)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>Make sure the clobal stream is loaded and its content cached.</summary>
+        public void EnsureGlobalStreamIsLoaded()
+        {
+            PdbStreamReader reader = new PdbStreamReader(this, _dbiStream.GlobalSymbolsStreamIndex);
+            throw new NotImplementedException();
+        }
+
+        /// <summary>Make sure the mandatory "/names" stream is loaded and content is cached.</summary>
+        /// <exception cref="PDBFormatException"></exception>
+        private void EnsureNamesStreamIsLoaded()
         {
             if (null != _pooledStringByOffset) {
                 return;
@@ -285,7 +306,7 @@ namespace PdbReader
             _pooledStringByOffset = new Dictionary<uint, string>();
             uint stringPoolStreamIndex = StringPoolStreamIndex;
             PdbStreamReader reader = new PdbStreamReader(this, stringPoolStreamIndex);
-            uint streamSize = _streamSizes[stringPoolStreamIndex];
+            uint streamSize = _streamBytesSizes[stringPoolStreamIndex];
 #if DEBUG
             Console.WriteLine("POOLED STRINGS ==================");
 #endif
@@ -356,6 +377,13 @@ namespace PdbReader
             return _dbiStream.FindSectionContribution(relativeVirtualAddress);
         }
         
+        /// <summary>Get the offset within the mapped PDB file of the block having the given number.
+        /// Compuation is performed based on <see cref="BlockSize"/> value in the super block. First
+        /// block has number 0.</summary>
+        /// <param name="blockNumber"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        /// <exception cref="OverflowException"></exception>
         internal uint GetBlockOffset(uint blockNumber)
         {
             if (blockNumber >= _superBlock.NumBlocks) {
@@ -382,7 +410,7 @@ namespace PdbReader
 
         internal string GetPooledStringByOffset(uint offset)
         {
-            EnsureStringPoolBuffering();
+            EnsureNamesStreamIsLoaded();
             string? result;
             if (!_pooledStringByOffset.TryGetValue(offset, out result)) {
                 throw new BugException($"Unable to retrieve pooled string @ 0x{offset:X8}");
@@ -400,43 +428,46 @@ namespace PdbReader
         /// <exception cref="ArgumentOutOfRangeException"></exception>
         internal uint[] GetStreamMap(uint streamIndex, out uint streamSize)
         {
-            if (null == _streamDescriptors) {
-                throw new BugException();
-            }
+            AssertStreamDescriptorsAreAvailable();
             if (_streamDescriptors.Count <= streamIndex) {
                 throw new ArgumentOutOfRangeException(nameof(streamIndex));
             }
-            streamSize = _streamSizes[streamIndex];
+            streamSize = _streamBytesSizes[streamIndex];
             return _streamDescriptors[(int)streamIndex].ToArray();
         }
 
+        /// <summary>Returns the size in bytes of the stream having the given index.</summary>
+        /// <param name="streamIndex"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
         internal uint GetStreamSize(uint streamIndex)
         {
-            if (_streamSizes.Length <= streamIndex) {
+            AssertStreamDescriptorsAreAvailable();
+            if (_streamBytesSizes.Length <= streamIndex) {
                 throw new ArgumentOutOfRangeException(nameof(streamIndex));
             }
-            return _streamSizes[streamIndex];
+            return _streamBytesSizes[streamIndex];
         }
 
-        private string GetString(byte[] buffer, uint bufferOffset)
-        {
-            if (null == buffer) {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-            if (int.MaxValue < bufferOffset) {
-                throw new ArgumentOutOfRangeException(nameof(bufferOffset));
-            }
-            uint bufferLength = (uint)buffer.Length;
-            uint maxStringLength = bufferLength - bufferOffset;
-            int stringLength = 0;
-            while(0 != buffer[bufferOffset + stringLength]) {
-                if (++stringLength > maxStringLength) {
-                    throw new PDBFormatException(
-                        $"Unterminated string found at offset {bufferOffset} in string buffer.");
-                }
-            }
-            return Encoding.ASCII.GetString(buffer, (int)bufferOffset, stringLength);
-        }
+        //private string GetString(byte[] buffer, uint bufferOffset)
+        //{
+        //    if (null == buffer) {
+        //        throw new ArgumentNullException(nameof(buffer));
+        //    }
+        //    if (int.MaxValue < bufferOffset) {
+        //        throw new ArgumentOutOfRangeException(nameof(bufferOffset));
+        //    }
+        //    uint bufferLength = (uint)buffer.Length;
+        //    uint maxStringLength = bufferLength - bufferOffset;
+        //    int stringLength = 0;
+        //    while(0 != buffer[bufferOffset + stringLength]) {
+        //        if (++stringLength > maxStringLength) {
+        //            throw new PDBFormatException(
+        //                $"Unterminated string found at offset {bufferOffset} in string buffer.");
+        //        }
+        //    }
+        //    return Encoding.ASCII.GetString(buffer, (int)bufferOffset, stringLength);
+        //}
 
         /// <remarks>See <see cref="IPdb.InitializeSymbolsMap()"/></remarks>
         public void InitializeSymbolsMap()
@@ -541,31 +572,72 @@ namespace PdbReader
         /// <summary>Load the PDB info stream.</summary>
         private void LoadPdbStream()
         {
+            const uint PdbStreamIndex = 1;
+            uint pdbStreamSize = GetStreamSize(PdbStreamIndex);
             // The PDB info stream is at fixed index 1.
-            PdbStreamReader reader = new PdbStreamReader(this, 1);
-            // Stream starts with an header ...
+            PdbStreamReader reader = new PdbStreamReader(this, PdbStreamIndex);
+            // Stream starts with an header.
             PdbStreamHeader header = reader.Read<PdbStreamHeader>();
             if (StrictChecksEnabled) {
                 if (!Enum.IsDefined(header.Version)) {
-                    throw new PDBFormatException(
-                        $"Invalid PDB stream header version {header.Version}");
+                    throw new PDBFormatException($"Invalid PDB stream header version {header.Version}");
                 }
             }
-            // ... followed by a length prefixed array of strings ...
+            // Followed by a length prefixed array of NTB strings being the named streams list.
             uint stringBufferLength = reader.ReadUInt32();
-            byte[] stringBuffer = new byte[stringBufferLength];
-            reader.Read(stringBuffer);
-            // ... then by an <uint, uint> hash table where key is an index in
-            // string buffer and value is a stream index.
+            uint namedStreamsListStartOffset = reader.Offset;
+            uint namedStreamsListEndOffsetExcluded = namedStreamsListStartOffset + stringBufferLength;
+
+            // We capture string offsets because they are used as a key in the hashtable below.
+            List<uint> namedStreamsBufferOffset = new List<uint>();
+            List<string> namedStreams = new List<string>();
+            while(namedStreamsListEndOffsetExcluded > reader.Offset) {
+                namedStreamsBufferOffset.Add(reader.Offset - namedStreamsListStartOffset);
+                string streamName = reader.ReadNTBString();
+                namedStreams.Add(streamName);
+            }
+            if (namedStreamsListEndOffsetExcluded != reader.Offset) {
+                throw new PDBFormatException("Named streams list end offset mismatch.");
+            }
+
+            // then by an <uint, uint> hash table where key is an index in string buffer and value is a
+            // stream index.
             _streamIndexByName = new Dictionary<string, uint>();
-            HashTableReader hashReader = new HashTableReader(this, 1, reader.Offset);
-            Dictionary<uint, uint> hashValues = hashReader.ReadUInt32Table();
+            // WARNING : The second parameter is a delegate. We don't actually read an integer before invoking
+            // the method/
+            HashTableContent<uint> hashTable = HashTableContent<uint>.Create(reader, reader.ReadUInt32);
+
+            // Then by a list of feature codes.
+            uint remainingBytes = (pdbStreamSize - reader.Offset);
+            if (0 != (remainingBytes % sizeof(PdbFeatureCodes))) {
+                throw new PDBFormatException("Invalid PDB stream size.");
+            }
+            int featureCodesCount = Utils.SafeCastToInt32(remainingBytes / sizeof(PdbFeatureCodes));
+            _featureCodes = new PdbFeatureCodes[featureCodesCount];
+            for(int index = 0; index < featureCodesCount; index++) {
+                _featureCodes[index] = (PdbFeatureCodes)reader.ReadUInt32();
+            }
 
             // Build the dictionary.
-            foreach (KeyValuePair<uint, uint> pair in hashValues) {
+            int namedStreamsCount = namedStreamsBufferOffset.Count;
+            foreach (KeyValuePair<uint, uint> pair in hashTable.Enumerate()) {
+                uint searchedKey = pair.Key;
+                int foundIndex = -1;
+                for (int index = 0; index < namedStreamsCount; index++) {
+                    if (namedStreamsBufferOffset[index] == searchedKey) {
+                        foundIndex = index;
+                        break;
+                    }
+                }
+                if (0 > foundIndex) {
+                    throw new PDBFormatException("Unable to match string index.");
+                }
                 // Extract name from stringBuffer
-                string streamName = GetString(stringBuffer, pair.Key);
+                string streamName = namedStreams[foundIndex];
                 _streamIndexByName.Add(streamName, pair.Value);
+            }
+            if (pdbStreamSize != reader.Offset) {
+                int i = 1;
             }
             return;
         }
@@ -583,29 +655,29 @@ namespace PdbReader
             if (ShouldTraceStreamDirectory) {
                 Console.WriteLine($"DBG : Expecting {numStreams} streams.");
             }
-            _streamSizes = new uint[numStreams];
+            _streamBytesSizes = new uint[numStreams];
             for (int streamIndex = 0; streamIndex < numStreams; streamIndex++) {
-                uint streamBlocksCount = mapReader.ReadUInt32();
+                uint streamBytesSize = mapReader.ReadUInt32();
                 totalReadBytes += sizeof(uint);
-                _streamSizes[streamIndex] = streamBlocksCount;
+                _streamBytesSizes[streamIndex] = streamBytesSize;
                 // NOTE : Some streams such as stream #83 in vcruntime140d.amd64.pdb with hash value
                 // 4636DD42F408275AEE31944E871539941 have been found to have uint.MaxValue for count.
                 // Assume this is an empty stream.
-                if ((0 == streamBlocksCount) || (uint.MaxValue == streamBlocksCount)) {
+                if ((0 == streamBytesSize) || (uint.MaxValue == streamBytesSize)) {
                     Console.WriteLine($"DBG : Stream #{streamIndex} is empty.");
                     // Make sure the count is registered as 0 even if uint.MaxValue was found.
-                    _streamSizes[streamIndex] = 0;
+                    _streamBytesSizes[streamIndex] = 0;
                     continue;
                 }
                 if (ShouldTraceStreamDirectory) {
                     Console.WriteLine(
-                        $"DBG : Stream #{streamIndex} is {_streamSizes[streamIndex]} bytes.");
+                        $"DBG : Stream #{streamIndex} is {_streamBytesSizes[streamIndex]} bytes.");
                 }
             }
             for (int streamIndex = 0; streamIndex < numStreams; streamIndex++) {
                 List<uint> streamDescriptor = new List<uint>();
                 _streamDescriptors.Add(streamDescriptor);
-                uint streamSize = _streamSizes[streamIndex];
+                uint streamSize = _streamBytesSizes[streamIndex];
                 uint streamBlocksCount = Ceil(streamSize, _superBlock.BlockSize);
                 if (ShouldTraceStreamDirectory) {
                     Console.Write($"DBG : Stream #{streamIndex} ({streamBlocksCount} blocks) : ");

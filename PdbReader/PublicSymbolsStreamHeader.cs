@@ -6,8 +6,8 @@ namespace PdbReader
     internal struct PublicSymbolsStreamHeader
     {
         internal uint SymHash;
-        /// <summary>Total number of bytes used by the address map. Entry count
-        /// could be computed by dividing by sizeof uint.</summary>
+        /// <summary>Total number of bytes used by the address map. Entry count could be computed by
+        /// dividing by sizeof uint.</summary>
         internal uint AddressMapBytesCount;
         /// <summary>Total number of thunks entries.</summary>
         internal uint ThunksCount;

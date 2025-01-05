@@ -43,11 +43,33 @@ be found in [MSFSuperBlock.NumDirectoryBytes]. Using [MSFSuperBlock.BlockSize] w
 blocks this directory uses : ceil(NumDirectoryBytes / BlockSize). [MSFSuperBlock.BlockMapAddr] is the
 block number where to find an array of indexes to blocks where the stream directory content is stored.
 The stream directory content provides the number of streams and for each of them the stream content size
-and the list of index of blocks they are made of.
-The directory content is read at [Pdb] creation time by [Pdb.LoadStreamDirectory].
+in bytes and the list of index of blocks they are made of.
+The directory content is read at [Pdb] creation time by [Pdb.LoadStreamDirectory] and delegated to the
+[BlockMapReader] class.
 Later on, whenever a stream must be read, we will instanciate the [PdbStreamReader] class with a stream
 identifier. This class provides a way to seamlessly read integral types, structures as well as jumping
 to a specific position in the stream without having to bother with stream block mapping.
+
+Hash tables
+===========
+Because PDB files are optimized for fast read, at the expense of more expensive PDB building operations,
+an hash table mechanism and associated data structure is defined. Every hashbtable uses unsigned 32 bits
+keys and store values of the given hastable type.
+The way to derive a 32 bits key from a given value is unspecified and must be agreed upon between the PDB
+producer and other programs that will consume them. However reverse engineering and reference code reading
+shows the following hashing functions are of common use :
+- TBD
+Hastable layout inside a stream is well defined and implemented by [HashTableContent].
+NOTE 1 : hashtables appear in the middle of stream content, hence the [PdbStreamReader] must already exist
+for the [HashTableContent] class to be instanciated.
+NOTE 2 : Not knowing the hashing function associated with an hashtable doesn't prevent reading the hashtable
+content from the PDB. However, this content may be useless because searching values from an hashtable is
+impossible without prior computing the searched key using the hash function.
+NOTE 3 : Only valid key/value pairs are stored in the hashtable content. See comment in the reading loop.
+
+PDB stream
+==========
+This stream always has index 1. 
 
 Debug Info Stream (DBI)
 =======================
@@ -81,10 +103,6 @@ The Mod*i streams
 Each module defined in the DBI stream that define at least one symbol has a corresponding stream defining
 those symbols. The index of the Mod*i stream is found in the corresponding [ModuleInfoRecord.SymbolStreamIndex]
 within the DBI stream.
-
-Hash streams
-============
-Not mandatory. Not implemented yet. To be considered for compatibility and performance reasons.
 
 Free Map Page (FMP)
 ===================

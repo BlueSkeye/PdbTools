@@ -53,6 +53,9 @@ namespace PdbReader
 
         private uint FileInformationSubstreamOffset => SectionMapSubstreamOffset + _header.SectionMapSize;
 
+        /// <summary>Get the index of the global symbols stream.</summary>
+        internal uint GlobalSymbolsStreamIndex => _header.GlobalStreamIndex;
+
         /// <summary>Offset within the stream of the module information substream. Always at a fixed offset
         /// immediately after the stream header.</summary>
         private uint ModuleInformationSubstreamOffset => DBIStreamHeader.Size;

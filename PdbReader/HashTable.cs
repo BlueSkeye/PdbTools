@@ -1,15 +1,11 @@
-﻿using PdbReader.Microsoft;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace PdbReader
 {
     internal class HashTable
     {
         private const int HashSize = 4096;
-        private uint[] _bitmap;
-        private uint[] _hashBuckets;
         private Header _header;
-        private uint[] _map;
         private List<HashRecord> _recordHash;
 
         ///<summary></summary>
@@ -38,15 +34,15 @@ namespace PdbReader
             // Read bitmap
             ulong bitmapBitsCount = ComputeBitmapBitsCount(HashSize + 1, 32);
             uint bitmapEntriesCount = (uint)(bitmapBitsCount / 32);
-            uint[] _bitmap = new uint[bitmapEntriesCount];
-            reader.ReadArray<uint>(_bitmap, reader.ReadUInt32);
+            uint[] bitmap = new uint[bitmapEntriesCount];
+            reader.ReadArray<uint>(bitmap, reader.ReadUInt32);
             uint compressedBucketIndex = 0;
             uint[] _map = new uint[HashSize];
             uint bucketsCount = 0;
             for (int hashIndex = 0; hashIndex < HashSize; hashIndex++) {
                 byte wordIndex = (byte)(hashIndex / 32);
                 byte bitIndex = (byte)(hashIndex % 32);
-                bool bitIsSet = (0 != (_bitmap[wordIndex] & (1 << bitIndex)));
+                bool bitIsSet = (0 != (bitmap[wordIndex] & (1 << bitIndex)));
                 if (bitIsSet) {
                     _map[hashIndex] = compressedBucketIndex++;
                     bucketsCount++;

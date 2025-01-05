@@ -1,5 +1,4 @@
 ﻿using PdbReader.Microsoft.CodeView;
-using PdbReader.Microsoft.CodeView.Symbols;
 
 namespace PdbReader
 {

@@ -20,6 +20,10 @@ namespace PdbReader
         /// will be interpreted.</param>
         void DBIDump(StreamWriter outputStream, bool hexadump);
 
+        void DumpPublicSymbols(StreamWriter outputStream);
+
+        void EnsureGlobalStreamIsLoaded();
+
         /// <summary>Retrieve definition of the module having the given identifier.</param>
         /// <returns>The module definition or a null reference if no such module could be
         /// found.</returns>

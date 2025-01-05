@@ -17,7 +17,7 @@
     <Compile Include="FIXUP_DATA.cs" />
     <Compile Include="FPO_DATA.cs" />
     <Compile Include="HashTable.cs" />
-    <Compile Include="HashTableReader.cs" />
+    <Compile Include="HashTableContent.cs" />
     <Compile Include="IdIndexedStream.cs" />
     <Compile Include="IndexedStream.cs" />
     <Compile Include="IPdb.cs" />
@@ -98,6 +98,7 @@
     <Compile Include="ModuleInformationStream.cs" />
     <Compile Include="MSFSuperBlock.cs" />
     <Compile Include="Pdb.cs" />
+    <Compile Include="PdbFeatureCodes.cs" />
     <Compile Include="PDBFormatException.cs" />
     <Compile Include="PdbStreamHeader.cs" />
     <Compile Include="PdbStreamReader.cs" />
