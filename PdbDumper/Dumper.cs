@@ -69,6 +69,8 @@ namespace PdbDumper
                 return 1;
             }
             pdb.EnsureGlobalStreamIsLoaded();
+            pdb.EnsureSymbolStreamIsLoaded();
+            // pdb.EnsureGlobalStreamIsLoaded();
             //using (StreamWriter writer = new StreamWriter(File.OpenWrite(_outputFile.FullName))) {
             //    pdb.DumpGlobalSymbols(writer);
             //    return 0;

@@ -24,6 +24,8 @@ namespace PdbReader
 
         void EnsureGlobalStreamIsLoaded();
 
+        void EnsureSymbolStreamIsLoaded();
+
         /// <summary>Retrieve definition of the module having the given identifier.</param>
         /// <returns>The module definition or a null reference if no such module could be
         /// found.</returns>

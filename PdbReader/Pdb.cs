@@ -76,6 +76,10 @@ namespace PdbReader
 
         internal static bool IsDebuggingEnabled => !string.IsNullOrEmpty(DebuggedPdbName);
 
+        internal bool MinimalDebugInfoEnabled { get; private set; }
+
+        internal bool NoTypeMergeEnabled { get; private set; }
+
         internal bool ShouldTraceNamedStreamMap => (0 != (_traceFlags & TraceFlags.NamedStreamMap));
 
         internal bool ShouldTraceModules => (0 != (_traceFlags & TraceFlags.ModulesInformation));
@@ -290,10 +294,14 @@ namespace PdbReader
         }
 
         /// <summary>Make sure the clobal stream is loaded and its content cached.</summary>
+        /// <remarks>See :
+        /// C:\WORK\llvm-project\llvm\lib\DebugInfo\PDB\Native\GSIStreamBuilder.cpp and
+        /// C:\WORK\llvm-project\llvm\lib\DebugInfo\PDB\Native\GlobalStream.cpp</remarks>
         public void EnsureGlobalStreamIsLoaded()
         {
-            PdbStreamReader reader = new PdbStreamReader(this, _dbiStream.GlobalSymbolsStreamIndex);
-            throw new NotImplementedException();
+            ushort globalSymbolsStreamIndex = Utils.SafeCastToUint16(_dbiStream.GlobalSymbolsStreamIndex);
+            GlobalSymbolsStream globalStream = new GlobalSymbolsStream(this, globalSymbolsStreamIndex);
+            return;
         }
 
         /// <summary>Make sure the mandatory "/names" stream is loaded and content is cached.</summary>
@@ -322,6 +330,23 @@ namespace PdbReader
 #if DEBUG
                 Console.WriteLine($"\t0x{key:X8} : '{pooledString}'");
 #endif
+            }
+            return;
+        }
+
+        /// <summary>Make sure the symbol stream containing all symbols is loaded.</summary>
+        /// <exception cref="NotImplementedException"></exception>
+        public void EnsureSymbolStreamIsLoaded()
+        {
+            uint symbolStreamIndex = _dbiStream.SymbolRecordStreamIndex;
+            PdbStreamReader reader = new PdbStreamReader(this, symbolStreamIndex);
+            uint symbolStreamSize = GetStreamSize(symbolStreamIndex);
+            // WARNING : The second parameter is a delegate. We don't actually read an integer before invoking
+            // the method/
+            HashTableContent<uint> hashTable = HashTableContent<uint>.Create(reader, reader.ReadUInt32);
+            // We should have reached the end of the stream.
+            if (symbolStreamSize != reader.Offset) {
+                throw new PDBFormatException("End of stream offset mismatch.");
             }
             return;
         }
@@ -615,7 +640,21 @@ namespace PdbReader
             int featureCodesCount = Utils.SafeCastToInt32(remainingBytes / sizeof(PdbFeatureCodes));
             _featureCodes = new PdbFeatureCodes[featureCodesCount];
             for(int index = 0; index < featureCodesCount; index++) {
-                _featureCodes[index] = (PdbFeatureCodes)reader.ReadUInt32();
+                PdbFeatureCodes featureCode = (PdbFeatureCodes)reader.ReadUInt32();
+                _featureCodes[index] = featureCode;
+                switch (featureCode) {
+                    case PdbFeatureCodes.MinimalDebugInfo:
+                        MinimalDebugInfoEnabled = true;
+                        break;
+                    case PdbFeatureCodes.NoTypeMerge:
+                        NoTypeMergeEnabled = true;
+                        break;
+                }
+            }
+
+            // We should have reached the end of the stream.
+            if (pdbStreamSize != reader.Offset) {
+                throw new PDBFormatException("End of stream offset mismatch.");
             }
 
             // Build the dictionary.
@@ -635,9 +674,6 @@ namespace PdbReader
                 // Extract name from stringBuffer
                 string streamName = namedStreams[foundIndex];
                 _streamIndexByName.Add(streamName, pair.Value);
-            }
-            if (pdbStreamSize != reader.Offset) {
-                int i = 1;
             }
             return;
         }

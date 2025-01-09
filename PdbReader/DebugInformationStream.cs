@@ -72,6 +72,9 @@ namespace PdbReader
 
         private uint SectionMapSubstreamOffset => SectionContributionSubstreamOffset + _header.SectionContributionSize;
 
+        /// <summary>Get the index of the symbol record stream.</summary>
+        internal uint SymbolRecordStreamIndex => _header.SymRecordStream;
+
         private uint TypeServerMapSubstreamOffset => FileInformationSubstreamOffset + _header.SourceInfoSize;
 
         private int AssertValidSectionIndex(uint candidate)

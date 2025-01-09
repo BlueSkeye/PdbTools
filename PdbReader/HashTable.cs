@@ -21,16 +21,31 @@ namespace PdbReader
             return (value + alignment - 1) / (alignment * alignment);
         }
 
-        internal static HashTable Create(PdbStreamReader reader)
+        /// <summary></summary>
+        /// <param name="reader">A reader for the stream.</param>
+        /// <param name="streamSize">Stream size as extracted from the PDB header.</param>
+        /// <returns></returns>
+        /// <exception cref="BugException"></exception>
+        internal static HashTable Create(PdbStreamReader reader, uint streamSize)
         {
             HashTable result = new HashTable() {
                 _header = reader.Read<Header>(),
                 _recordHash = new List<HashRecord>()
             };
-            // Read header.
-            if (Header._Signature.SupportedVersion != result._header.Signature) {
-                throw new BugException();
+            if (Header.SupportedVersion != result._header.VerHdr) {
+                throw new BugException(
+                    $"Header version 0x{result._header.VerHdr:X8} doesn't match expected version 0x{Header.SupportedVersion:X8}.");
             }
+            uint iphrHash = reader.Owner.MinimalDebugInfoEnabled ? 0x3FFFFU : 0x1000U;
+            // we persist the phr's as OFFs, so we need to do the right size here
+            uint cbphr = sizeof(long) * (iphrHash + 1);
+            uint entriesByteCount = (streamSize - cbphr);
+            uint hashRecordSize = (uint)Marshal.SizeOf<HashRecord>();
+            if (0 != (entriesByteCount % hashRecordSize)) {
+                throw new PDBFormatException($"Invalid entry bytes count {entriesByteCount}");
+            }
+            uint entriesCount = entriesByteCount / hashRecordSize;
+
             // Read bitmap
             ulong bitmapBitsCount = ComputeBitmapBitsCount(HashSize + 1, 32);
             uint bitmapEntriesCount = (uint)(bitmapBitsCount / 32);
@@ -84,18 +99,14 @@ namespace PdbReader
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct Header
         {
-            internal _Signature Signature;
+            internal const uint SupportedVersion = 0xEFFE0000 + 19990810;
+
+            internal uint Signature;
             internal uint VerHdr;
             /// <summary>Number of bytes for records storage.</summary>
             internal uint RecordsBytesCount;
             /// <summary>Number of buckets.</summary>
             internal uint BucketsCount;
-
-            internal enum _Signature : uint
-            {
-                HdrSignature = uint.MaxValue,
-                SupportedVersion = 0xEFFE0000 + 19990810
-            }
         }
     }
 }

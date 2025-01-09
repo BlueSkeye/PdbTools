@@ -48,6 +48,19 @@ namespace PdbReader
             return into;
         }
 
+        internal static byte SafeCastToByte(int value)
+        {
+            if (0 > value) { throw new BugException(); }
+            if (byte.MaxValue < value) { throw new BugException(); }
+            return (byte)value;
+        }
+
+        internal static byte SafeCastToByte(uint value)
+        {
+            if (byte.MaxValue < value) { throw new BugException(); }
+            return (byte)value;
+        }
+
         internal static int SafeCastToInt32(uint value)
         {
             if (int.MaxValue < value) { throw new BugException(); }

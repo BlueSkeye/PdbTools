@@ -15,7 +15,7 @@ namespace PdbReader
             // For debugging purpose.
             this.Reader.Offset = 0;
             _pssHeader = this.Reader.Read<PublicSymbolsStreamHeader>();
-            _hashTable = HashTable.Create(this.Reader);
+            _hashTable = HashTable.Create(this.Reader, base._owner.GetStreamSize(index));
 
             // Read other stuff
             _addressMap = new uint[_pssHeader.AddressMapBytesCount / sizeof(uint)];

@@ -16,6 +16,8 @@
     <Compile Include="EditAndContinueMappingHeader.cs" />
     <Compile Include="FIXUP_DATA.cs" />
     <Compile Include="FPO_DATA.cs" />
+    <Compile Include="GlobalSymbolsStream.cs" />
+    <Compile Include="HashStream.cs" />
     <Compile Include="HashTable.cs" />
     <Compile Include="HashTableContent.cs" />
     <Compile Include="IdIndexedStream.cs" />

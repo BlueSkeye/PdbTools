@@ -17,6 +17,10 @@ namespace PdbReader
 
         internal PdbStreamReader Reader => _reader;
 
+        internal ushort StreamIndex => _streamIndex;
+
+        internal uint StreamSize => _owner.GetStreamSize(_streamIndex);
+
         internal abstract string StreamName { get; }
     }
 }
