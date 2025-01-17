@@ -348,16 +348,12 @@ namespace PdbReader
                 return;
             }
             uint symbolStreamIndex = _dbiStream.SymbolRecordStreamIndex;
-            PdbStreamReader reader = new PdbStreamReader(this, symbolStreamIndex);
             uint symbolStreamSize = GetStreamSize(symbolStreamIndex);
             _allSymbolsStream = new AllSymbolsStream(this, Utils.SafeCastToUint16(symbolStreamIndex));
             //// WARNING : The second parameter is a delegate. We don't actually read an integer before invoking
             //// the method
             //HashTableContent<uint> hashTable = HashTableContent<uint>.Create(reader, reader.ReadUInt32);
             // We should have reached the end of the stream.
-            if (symbolStreamSize != reader.Offset) {
-                throw new PDBFormatException("End of stream offset mismatch.");
-            }
             return;
         }
 

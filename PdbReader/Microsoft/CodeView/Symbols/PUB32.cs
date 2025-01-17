@@ -17,7 +17,6 @@ namespace PdbReader.Microsoft.CodeView.Symbols
             _offset = reader.ReadUInt32();
             _segment = reader.ReadUInt16();
             Name = reader.ReadNTBString();
-            reader.EnsureAlignment(sizeof(uint));
             return;
         }
 

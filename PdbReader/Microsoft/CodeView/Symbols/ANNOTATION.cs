@@ -18,6 +18,7 @@ namespace PdbReader.Microsoft.CodeView.Symbols
             for(int index = 0; index < annotationsCount; index++) {
                 _annotations[index] = reader.ReadNTBString();
             }
+            return;
         }
     }
 }
