@@ -25,6 +25,7 @@
     <Compile Include="IndexedStream.cs" />
     <Compile Include="IPdb.cs" />
     <Compile Include="IStreamGlobalOffset.cs" />
+    <Compile Include="Microsoft\CodeView\Symbols\PROCREF.cs" />
     <Compile Include="Microsoft\CodeView\Symbols\PUB32.cs" />
     <Compile Include="Microsoft\CodeView\Types\ArgumentList.cs" />
     <Compile Include="Microsoft\CodeView\Types\BaseClass.cs" />

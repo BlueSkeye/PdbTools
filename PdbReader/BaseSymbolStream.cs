@@ -44,6 +44,9 @@ namespace PdbReader
                 case SymbolKind.S_LPROC32_DPC_ID:
                 case SymbolKind.S_LPROC32_ID:
                     return new PROCSYM32(_reader, recordLength, symbolKind);
+                case SymbolKind.S_LPROCREF:
+                case SymbolKind.S_PROCREF:
+                    return new PROCREF(_reader, recordLength, symbolKind);
                 case SymbolKind.S_PUB32:
                     return new PUB32(_reader, recordLength);
                 case SymbolKind.S_SEPCODE:
