@@ -6,7 +6,7 @@ namespace PdbReader.Microsoft.CodeView.Symbols
         internal static readonly END Singleton = new END();
 
         private END()
-            : base(2, SymbolStream.SymbolKind.S_END)
+            : base(2, BaseSymbolStream.SymbolKind.S_END)
         {
         }
     }

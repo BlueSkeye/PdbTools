@@ -14,7 +14,7 @@ namespace PdbReader.Microsoft.CodeView.Symbols
         private readonly ushort _segment;
         private readonly Flags _flags;
 
-        internal PROCSYM32(PdbStreamReader reader, ushort recordLength, SymbolStream.SymbolKind symbolKind)
+        internal PROCSYM32(PdbStreamReader reader, ushort recordLength, BaseSymbolStream.SymbolKind symbolKind)
             : base(recordLength, symbolKind)
         {
             _parent = reader.ReadUInt32();

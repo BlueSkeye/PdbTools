@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="AllSymbolsStream.cs" />
     <Compile Include="BaseStream.cs" />
     <Compile Include="BlockMapReader.cs" />
     <Compile Include="DBIStreamHeader.cs" />
@@ -24,6 +25,7 @@
     <Compile Include="IndexedStream.cs" />
     <Compile Include="IPdb.cs" />
     <Compile Include="IStreamGlobalOffset.cs" />
+    <Compile Include="Microsoft\CodeView\Symbols\PUB32.cs" />
     <Compile Include="Microsoft\CodeView\Types\ArgumentList.cs" />
     <Compile Include="Microsoft\CodeView\Types\BaseClass.cs" />
     <Compile Include="Microsoft\CodeView\Types\BitField.cs" />
@@ -112,7 +114,7 @@
     <Compile Include="SectionMapEntry.cs" />
     <Compile Include="SectionMapHeader.cs" />
     <Compile Include="StringPoolHeader.cs" />
-    <Compile Include="SymbolStream.cs" />
+    <Compile Include="BaseSymbolStream.cs" />
     <Compile Include="TPIStream.cs" />
     <Compile Include="..\SharedSource\BugException.cs" />
     <Compile Include="..\SharedSource\KnownDirectories.cs" />

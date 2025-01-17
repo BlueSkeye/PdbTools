@@ -1,17 +1,18 @@
-﻿using System.Runtime.InteropServices;
-using static System.Net.Mime.MediaTypeNames;
+﻿using System;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace PdbReader
 {
     /// <summary>The base class for both the GSI (global symbols) and PSS (public symbols stream)</summary>
     internal abstract class HashStream : BaseStream
     {
-        private const int IPHR_HASH = 4096;
+        protected const int IPHR_HASH = 4096;
         private Header _header;
-        private HashRecord[] _hashRecords;
+        protected HashRecord[] _hashRecords;
         private uint[] _hashBitmap;
-        private uint[] _hashBuckets;
-        private int[] _bucketMap;
+        protected uint[] _hashBuckets;
+        protected int[] _bucketMap;
 
         public HashStream(Pdb owner, ushort streamIndex)
             : base(owner, streamIndex)
@@ -76,6 +77,72 @@ namespace PdbReader
             // Most compilers can generate this code but the pattern may be missed when
             // multiple functions gets inlined.
             return (size + modulo - 1) & ~(modulo - 1);
+        }
+
+        // Corresponds to `Hasher::lhashPbCb` in PDB/include/misc.h.
+        // Used for name hash table and TPI/IPI hashes.
+        internal uint HashStringV1(string candidate)
+        {
+            const uint ToLowerMask = 0x20202020;
+            uint result = 0;
+            uint size = Utils.SafeCastToUint32(candidate.Length);
+            byte[] candidateBytes = Encoding.UTF8.GetBytes(candidate);
+            int candidateBytesLength = candidateBytes.Length;
+            uint[] split = new uint[candidateBytesLength / 4];
+            int byteIndex = 0;
+            for(uint splitIndex = 0; splitIndex < split.Length; splitIndex++) {
+                split[splitIndex] = (uint)candidateBytes[byteIndex++] +
+                    ((uint)candidateBytes[byteIndex++] << 8) +
+                    ((uint)candidateBytes[byteIndex++] << 16) +
+                    ((uint)candidateBytes[byteIndex++] << 24);
+            }
+            uint remainderSize = (uint)candidateBytesLength % sizeof(uint);
+            foreach (uint item in split) {
+                result ^= item;
+            }
+            // Maximum of 3 bytes left. Hash a 2 byte word if possible, then hash the possibly remaining 1 byte.
+            if (2 <= remainderSize) {
+                result ^= (uint)candidateBytes[byteIndex++] + ((uint)candidateBytes[byteIndex++] << 8);
+                remainderSize -= 2;
+            }
+            // hash possible odd byte
+            if (0 < remainderSize) {
+                result ^= (uint)candidateBytes[byteIndex++];
+            }
+            if (byteIndex != candidateBytesLength) {
+                throw new BugException();
+            }
+            result |= ToLowerMask;
+            result ^= (result >> 11);
+            return result ^ (result >> 16);
+        }
+
+        // Corresponds to `HasherV2::HashULONG` in PDB/include/misc.h.
+        // Used for name hash table.
+        internal uint HashStringV2(string candidate)
+        {
+            uint hash = 0xb170a1bf;
+            byte[] buffer = Encoding.UTF8.GetBytes(candidate);
+            int itemsCount = buffer.Length / sizeof(uint);
+            uint[] items = new uint[itemsCount];
+            for (int index = 0; index < itemsCount; index++) {
+                items[index] = (uint)buffer[index++] +
+                    ((uint)buffer[index++] << 8) +
+                    ((uint)buffer[index++] << 16) +
+                    ((uint)buffer[index++] << 24);
+            }
+            foreach (uint item in items) {
+                hash += item;
+                hash += (hash << 10);
+                hash ^= (hash >> 6);
+            }
+            for (int index = (itemsCount * sizeof(uint)); index < buffer.Length; index++) {
+                byte item = buffer[index];
+                hash += item;
+                hash += (hash << 10);
+                hash ^= (hash >> 6);
+            }
+            return (hash * 0x0019660D) + 0x3C6EF35F;
         }
 
         private uint popcount(uint value)

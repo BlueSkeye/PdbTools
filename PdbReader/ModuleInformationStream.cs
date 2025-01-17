@@ -10,7 +10,7 @@ namespace PdbReader
     /// defined in the compiland. Finally, there is a “global refs” substream which is not well understood.
     /// </summary>
     /// <remarks>See https://llvm.org/docs/PDB/ModiStream.html</remarks>
-    internal class ModuleInformationStream : SymbolStream
+    internal class ModuleInformationStream : BaseSymbolStream
     {
         private readonly string _streamName;
         private readonly List<ISymbolRecord> _symbols;
@@ -32,7 +32,7 @@ namespace PdbReader
             if (0 != c11BytesSize) {
                 throw new NotSupportedException("Some C11 line code information found. Format is unknown.");
             }
-            int symbolsCount = Utils.SafeCastToInt32(symbolSize - sizeof(uint));
+            int symbolsCount = Utils.SafeCastToInt32(symbolSize - sizeof(Signature));
             uint startOffset = _reader.Offset;
             uint endOffsetExcluded = startOffset + symbolSize;
 

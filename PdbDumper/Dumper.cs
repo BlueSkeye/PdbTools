@@ -68,8 +68,8 @@ namespace PdbDumper
                 Console.WriteLine($"ERROR : Unable to open PDB.");
                 return 1;
             }
-            pdb.EnsureGlobalStreamIsLoaded();
             pdb.EnsureSymbolStreamIsLoaded();
+            pdb.EnsureGlobalStreamIsLoaded();
             // pdb.EnsureGlobalStreamIsLoaded();
             //using (StreamWriter writer = new StreamWriter(File.OpenWrite(_outputFile.FullName))) {
             //    pdb.DumpGlobalSymbols(writer);

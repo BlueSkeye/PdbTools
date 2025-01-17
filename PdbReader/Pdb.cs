@@ -1,6 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using System.IO.MemoryMappedFiles;
 using System.Text;
+using PdbReader.Microsoft.CodeView.Enumerations;
 
 namespace PdbReader
 {
@@ -10,6 +11,7 @@ namespace PdbReader
         /// empty.</summary>
         internal const string DebuggedPdbName = "";
         private const string StringPoolStreamName = "/names";
+        private AllSymbolsStream _allSymbolsStream;
         /// <summary>This member is only valid for a short period of time during object initialization.
         /// Moreover both the map and the count are not initialized unless strict checks areenabled.</summary>
         private uint _blockMapBlocksCount = 0;
@@ -18,6 +20,7 @@ namespace PdbReader
         /// <summary>This member is only valid for a short period of time during object initialization.
         /// Moreover both the map and the count are not initialized unless strict checks areenabled.</summary>
         private bool[]? _freeBlockMaps = null;
+        private GlobalSymbolsStream _globalStream;
         /// <summary>An array of flags describing blocks that are known to be in use.</summary>
         private bool[] _knownInUseBlocks;
         /// <summary>A memory mapping for the input PDB file.</summary>
@@ -299,8 +302,11 @@ namespace PdbReader
         /// C:\WORK\llvm-project\llvm\lib\DebugInfo\PDB\Native\GlobalStream.cpp</remarks>
         public void EnsureGlobalStreamIsLoaded()
         {
+            if (null != _globalStream) {
+                return;
+            }
             ushort globalSymbolsStreamIndex = Utils.SafeCastToUint16(_dbiStream.GlobalSymbolsStreamIndex);
-            GlobalSymbolsStream globalStream = new GlobalSymbolsStream(this, globalSymbolsStreamIndex);
+            _globalStream = new GlobalSymbolsStream(this, globalSymbolsStreamIndex);
             return;
         }
 
@@ -338,12 +344,16 @@ namespace PdbReader
         /// <exception cref="NotImplementedException"></exception>
         public void EnsureSymbolStreamIsLoaded()
         {
+            if (null != _allSymbolsStream) {
+                return;
+            }
             uint symbolStreamIndex = _dbiStream.SymbolRecordStreamIndex;
             PdbStreamReader reader = new PdbStreamReader(this, symbolStreamIndex);
             uint symbolStreamSize = GetStreamSize(symbolStreamIndex);
-            // WARNING : The second parameter is a delegate. We don't actually read an integer before invoking
-            // the method/
-            HashTableContent<uint> hashTable = HashTableContent<uint>.Create(reader, reader.ReadUInt32);
+            _allSymbolsStream = new AllSymbolsStream(this, Utils.SafeCastToUint16(symbolStreamIndex));
+            //// WARNING : The second parameter is a delegate. We don't actually read an integer before invoking
+            //// the method
+            //HashTableContent<uint> hashTable = HashTableContent<uint>.Create(reader, reader.ReadUInt32);
             // We should have reached the end of the stream.
             if (symbolStreamSize != reader.Offset) {
                 throw new PDBFormatException("End of stream offset mismatch.");

@@ -3,11 +3,28 @@ using PdbReader.Microsoft.CodeView.Symbols;
 
 namespace PdbReader
 {
-    internal abstract class SymbolStream : BaseStream
+    internal abstract class BaseSymbolStream : BaseStream
     {
-        protected SymbolStream(Pdb owner, ushort streamIndex)
+        protected List<ISymbolRecord> _symbols;
+
+        protected BaseSymbolStream(Pdb owner, ushort streamIndex)
             : base(owner, streamIndex)
         {
+        }
+
+        internal void LoadAllRecords()
+        {
+            uint startOffset = _reader.Offset;
+            uint endOffsetExcluded = base.StreamSize;
+            _symbols = new List<ISymbolRecord>();
+            while (endOffsetExcluded > _reader.Offset) {
+                _symbols.Add(LoadSymbolRecord());
+                _reader.EnsureAlignment(4);
+            }
+            if (endOffsetExcluded != _reader.Offset) {
+                throw new PDBFormatException($"Invalid end offset.");
+            }
+            return;
         }
 
         protected ISymbolRecord LoadSymbolRecord()
@@ -27,6 +44,8 @@ namespace PdbReader
                 case SymbolKind.S_LPROC32_DPC_ID:
                 case SymbolKind.S_LPROC32_ID:
                     return new PROCSYM32(_reader, recordLength, symbolKind);
+                case SymbolKind.S_PUB32:
+                    return new PUB32(_reader, recordLength);
                 case SymbolKind.S_SEPCODE:
                     return new SEPCODE(_reader, recordLength, symbolKind);
                 default:
