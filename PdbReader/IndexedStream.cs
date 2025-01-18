@@ -15,68 +15,6 @@ namespace PdbReader
 
         internal uint RecordsCount => _header.TypeIndexEndExcluded - _header.TypeIndexBegin;
 
-        protected internal struct Header
-        {
-            internal _Version Version;
-            /// <summary>Sizeof(Header)</summary>
-            internal uint HeaderSize;
-            /// <summary>The numeric value of the type index representing the first type record in the
-            /// TPI stream. This is usually the value 0x1000 as type indices lower than this are reserved
-            /// (see Type Indices for a discussion of reserved type indices).</summary>
-            internal uint TypeIndexBegin;
-            /// <summary>One greater than the numeric value of the type index representing the last type
-            /// record in the TPI stream. The total number of type records in the TPI/IPI stream can be
-            /// computed as TypeIndexEndExcluded - TypeIndexBegin.</summary>
-            internal uint TypeIndexEndExcluded;
-            /// <summary>The number of bytes of type record data following the header.</summary>
-            internal uint TypeRecordBytes;
-            /// <summary>The index of a stream which contains a list of hashes for every type record.
-            /// This value may be -1, indicating that hash information is not present. In practice a
-            /// valid stream index is always observed, so any producer implementation should be prepared
-            /// to emit this stream to ensure compatibility with tools which may expect it to be present.</summary>
-            internal ushort HashStreamIndex;
-            /// <summary>Presumably the index of a stream which contains a separate hash table, although
-            /// this has not been observed in practice and it’s unclear what it might be used for.</summary>
-            internal ushort HashAuxStreamIndex;
-            /// <summary>The size of a hash value (usually 4 bytes).</summary>
-            internal uint HashKeySize;
-            /// <summary>The number of buckets used to generate the hash values in the aforementioned hash
-            /// streams.</summary>
-            internal uint NumHashBuckets;
-            /// <summary>The offset and size within the TPI Hash Stream of the list of hash values. It should
-            /// be assumed that there are either 0 hash values, or a number equal to the number of type
-            /// records in the TPI stream
-            /// (TypeIndexEnd - TypeEndBegin). Thus, if HashBufferLength is not equal to
-            /// (TypeIndexEnd - TypeEndBegin) * HashKeySize we can consider the PDB malformed.</summary>
-            internal int HashValueBufferOffset;
-            internal uint HashValueBufferLength;
-            /// <summary>The offset and size within the TPI Hash Stream of the Type Index Offsets Buffer.
-            /// This is a list of pairs of uint32_t’s where the first value is a Type Index and the second
-            /// value is the offset in the type record data of the type with this index. This can be used
-            /// to do a binary search followed by a linear search to get O(log n) lookup by type index.</summary>
-            internal int IndexOffsetBufferOffset;
-            internal uint IndexOffsetBufferLength;
-            /// <summary>The offset and size within the TPI hash stream of a serialized hash table whose
-            /// keys are the hash values in the hash value buffer and whose values are type indices. This
-            /// appears to be useful in incremental linking scenarios, so that if a type is modified an
-            /// entry can be created mapping the old hash value to the new type index so that a PDB file
-            /// consumer can always have the most up to date version of the type without forcing the
-            /// incremental linker to garbage collect and update references that point to the old version
-            /// to now point to the new version. The layout of this hash table is described in The PDB
-            /// Serialized Hash Table</summary>
-            internal int HashAdjBufferOffset;
-            internal uint HashAdjBufferLength;
-
-            internal enum _Version : uint
-            {
-                V40 = 19950410,
-                V41 = 19951122,
-                V50 = 19961031,
-                V70 = 19990903,
-                V80 = 20040203
-            }
-        }
-
         /// <summary>From :
         /// https://code.woboq.org/llvm/llvm/include/llvm/DebugInfo/CodeView/TypeIndex.h.html</summary>
         public enum BuiltinTypeKind
@@ -182,6 +120,68 @@ namespace PdbReader
             Character16 = 0x007a,
             // char32_t
             Character32 = 0x007b,
+        }
+
+        protected internal struct Header
+        {
+            internal _Version Version;
+            /// <summary>Sizeof(Header)</summary>
+            internal uint HeaderSize;
+            /// <summary>The numeric value of the type index representing the first type record in the
+            /// indexed stream. This is usually the value 0x1000 for TPI stream as type indices lower
+            /// than this are reserved (see Type Indices for a discussion of reserved type indices).</summary>
+            internal uint TypeIndexBegin;
+            /// <summary>One greater than the numeric value of the type index representing the last type
+            /// record in the indexed stream. The total number of type records in the indexed stream can be
+            /// computed as TypeIndexEndExcluded - TypeIndexBegin.</summary>
+            internal uint TypeIndexEndExcluded;
+            /// <summary>The number of bytes of type record data following the header.</summary>
+            internal uint TypeRecordBytes;
+            /// <summary>The index of a stream which contains a list of hashes for every type record.
+            /// This value may be -1, indicating that hash information is not present. In practice a
+            /// valid stream index is always observed, so any producer implementation should be prepared
+            /// to emit this stream to ensure compatibility with tools which may expect it to be present.</summary>
+            internal ushort HashStreamIndex;
+            /// <summary>Presumably the index of a stream which contains a separate hash table, although
+            /// this has not been observed in practice and it’s unclear what it might be used for.</summary>
+            internal ushort HashAuxStreamIndex;
+            /// <summary>The size of a hash value (usually 4 bytes).</summary>
+            internal uint HashKeySize;
+            /// <summary>The number of buckets used to generate the hash values in the aforementioned hash
+            /// streams.</summary>
+            internal uint NumHashBuckets;
+            /// <summary>The offset and size within the TPI Hash Stream of the list of hash values. It should
+            /// be assumed that there are either 0 hash values, or a number equal to the number of type
+            /// records in the TPI stream
+            /// (TypeIndexEnd - TypeEndBegin). Thus, if HashBufferLength is not equal to
+            /// (TypeIndexEnd - TypeEndBegin) * HashKeySize we can consider the PDB malformed.</summary>
+            internal int HashValueBufferOffset;
+            internal uint HashValueBufferLength;
+            /// <summary>The offset and size within the TPI Hash Stream of the Type Index Offsets Buffer.
+            /// This is a list of pairs of uint32_t’s where the first value is a Type Index and the second
+            /// value is the offset in the type record data of the type with this index. This can be used
+            /// to do a binary search followed by a linear search to get O(log n) lookup by type index.</summary>
+            internal int IndexOffsetBufferOffset;
+            internal uint IndexOffsetBufferLength;
+            /// <summary>The offset and size within the TPI hash stream of a serialized hash table whose
+            /// keys are the hash values in the hash value buffer and whose values are type indices. This
+            /// appears to be useful in incremental linking scenarios, so that if a type is modified an
+            /// entry can be created mapping the old hash value to the new type index so that a PDB file
+            /// consumer can always have the most up to date version of the type without forcing the
+            /// incremental linker to garbage collect and update references that point to the old version
+            /// to now point to the new version. The layout of this hash table is described in The PDB
+            /// Serialized Hash Table</summary>
+            internal int HashAdjBufferOffset;
+            internal uint HashAdjBufferLength;
+
+            internal enum _Version : uint
+            {
+                V40 = 19950410,
+                V41 = 19951122,
+                V50 = 19961031,
+                V70 = 19990903,
+                V80 = 20040203
+            }
         }
     }
 }

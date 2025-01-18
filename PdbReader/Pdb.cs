@@ -1,11 +1,12 @@
 ﻿using System.Runtime.InteropServices;
 using System.IO.MemoryMappedFiles;
 using System.Text;
-using PdbReader.Microsoft.CodeView.Enumerations;
+using PdbReader.Microsoft.CodeView;
+using PdbReader.Microsoft.CodeView.Symbols;
 
 namespace PdbReader
 {
-    public class Pdb : IPdb
+    public class Pdb : IPdb, IDisposable
     {
         /// <summary>For debugging purpose. Allows for skipping files that don't match this name if not
         /// empty.</summary>
@@ -27,6 +28,10 @@ namespace PdbReader
         private MemoryMappedFile _mappedPdb;
         /// <summary>A view encompassing the full content of the <see cref="_mappedPdb"/> file.</summary>
         private MemoryMappedViewAccessor _mappedPdbView;
+        private Dictionary<ushort, ModuleSymbolStream> _moduleSymbolStreamsByStreamId =
+            new Dictionary<ushort, ModuleSymbolStream>();
+        private Dictionary<ModuleInfoRecord, ModuleSymbolStream> _moduleSymbolStreamsByModule =
+            new Dictionary<ModuleInfoRecord, ModuleSymbolStream>();
         internal readonly FileInfo _pdbFile;
         private Dictionary<uint, string> _pooledStringByOffset;
         /// <summary>The outermost list index is the stream index. The content is a list of block indexes
@@ -38,6 +43,7 @@ namespace PdbReader
         private readonly MSFSuperBlock _superBlock;
         private TPIStream _tpiStream;
         private readonly TraceFlags _traceFlags;
+        private readonly Dictionary<uint, ITypeRecord> _typesByIndex = new Dictionary<uint, ITypeRecord>();
 
         /// <summary>Initialize a PDB reader by mapping the file and reading the superblock.</summary>
         /// <param name="target">Target PDB file to open.</param>
@@ -68,6 +74,11 @@ namespace PdbReader
             catch (Exception ex){
                 throw new PDBFormatException("Unable to read PDB superblock.", ex);
             }
+        }
+
+        ~Pdb()
+        {
+            Dispose(false);
         }
 
         public DebugInformationStream DebugInfoStream => _dbiStream ?? throw new BugException();
@@ -248,8 +259,7 @@ namespace PdbReader
                     noSymbolModuleCount++;
                     continue;
                 }
-                new ModuleInformationStream(result, moduleInfo.SymbolStreamIndex, moduleInfo.SymByteSize,
-                    moduleInfo.C11ByteSize, moduleInfo.C13ByteSize);
+                result.EnsureModuleSymbolStreamIsLoaded(moduleInfo);
             }
             Console.WriteLine($"INFO : {noSymbolModuleCount} symbol less modules found.");
             return result;
@@ -291,6 +301,16 @@ namespace PdbReader
             return;
         }
 
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            END.Release(this);
+        }
+
         public void DumpPublicSymbols(StreamWriter outputStream)
         {
             throw new NotImplementedException();
@@ -308,6 +328,32 @@ namespace PdbReader
             ushort globalSymbolsStreamIndex = Utils.SafeCastToUint16(_dbiStream.GlobalSymbolsStreamIndex);
             _globalStream = new GlobalSymbolsStream(this, globalSymbolsStreamIndex);
             return;
+        }
+
+        private ModuleSymbolStream EnsureModuleSymbolStreamIsLoaded(ModuleInfoRecord moduleDefinition)
+        {
+            ModuleSymbolStream result;
+            ushort streamIndex = moduleDefinition.SymbolStreamIndex;
+            if (!_moduleSymbolStreamsByStreamId.TryGetValue(streamIndex, out result)) {
+                result = new ModuleSymbolStream(this, streamIndex, moduleDefinition.SymByteSize,
+                    moduleDefinition.C11ByteSize, moduleDefinition.C13ByteSize);
+                _moduleSymbolStreamsByStreamId.Add(streamIndex, result);
+                _moduleSymbolStreamsByModule.Add(moduleDefinition, result);
+            }
+            return result;
+        }
+
+        public void EnsureModuleSymbolStreamIsLoaded(ushort moduleId)
+        {
+            _ = EnsureModuleSymbolStreamIsLoadedInternal(moduleId);
+            return;
+        }
+
+        internal ModuleSymbolStream EnsureModuleSymbolStreamIsLoadedInternal(ushort moduleId)
+        {
+            ModuleInfoRecord moduleDefinition = FindModuleById(moduleId)
+                ?? throw new PDBFormatException($"Unable to retrieve definition for module #{moduleId}");
+            return EnsureModuleSymbolStreamIsLoaded(moduleDefinition);
         }
 
         /// <summary>Make sure the mandatory "/names" stream is loaded and content is cached.</summary>
@@ -344,17 +390,20 @@ namespace PdbReader
         /// <exception cref="NotImplementedException"></exception>
         public void EnsureSymbolStreamIsLoaded()
         {
-            if (null != _allSymbolsStream) {
-                return;
+            if (null == _allSymbolsStream) {
+                uint symbolStreamIndex = _dbiStream.SymbolRecordStreamIndex;
+                _allSymbolsStream = new AllSymbolsStream(this, Utils.SafeCastToUint16(symbolStreamIndex));
             }
-            uint symbolStreamIndex = _dbiStream.SymbolRecordStreamIndex;
-            uint symbolStreamSize = GetStreamSize(symbolStreamIndex);
-            _allSymbolsStream = new AllSymbolsStream(this, Utils.SafeCastToUint16(symbolStreamIndex));
-            //// WARNING : The second parameter is a delegate. We don't actually read an integer before invoking
-            //// the method
-            //HashTableContent<uint> hashTable = HashTableContent<uint>.Create(reader, reader.ReadUInt32);
-            // We should have reached the end of the stream.
             return;
+        }
+
+        /// <summary>Enumerate all symbols from the PDB file using the content of the symbol stream.
+        /// Returned records may be references to real symbol.</summary>
+        /// <returns></returns>
+        public IEnumerable<ISymbolRecord> EnumerateAllSymbols()
+        {
+            EnsureSymbolStreamIsLoaded();
+            return _allSymbolsStream.EnumerateSymbols();
         }
 
         /// <summary>Enumerate all public symbols from the PDB file.</summary>
@@ -362,9 +411,9 @@ namespace PdbReader
         /// <exception cref="NotImplementedException"></exception>
         private IEnumerable<object> EnumeratePublicSymbols()
         {
-            PublicSymbolStream publicSymbolStream = new PublicSymbolStream(this,
-                Utils.SafeCastToUint16(_dbiStream.PublicSymbolsStreamIndex));
             throw new NotImplementedException();
+            //PublicSymbolStream publicSymbolStream = new PublicSymbolStream(this,
+            //    Utils.SafeCastToUint16(_dbiStream.PublicSymbolsStreamIndex));
         }
 
         /// <summary></summary>
@@ -437,6 +486,11 @@ namespace PdbReader
                 throw new ArgumentException($"Invalid module index #{moduleIndex}");
             }
             return result;
+        }
+
+        internal ModuleSymbolStream GetModuleSymbolStream(ushort moduleId)
+        {
+            return EnsureModuleSymbolStreamIsLoadedInternal(moduleId);
         }
 
         internal string GetPooledStringByOffset(uint offset)
@@ -800,6 +854,14 @@ namespace PdbReader
             T result;
             _mappedPdbView.Read<T>(position, out result);
             return result;
+        }
+
+        internal void RegisterType(uint index, ITypeRecord type)
+        {
+            if (4106 == index) {
+                int i = 1;
+            }
+            _typesByIndex.Add(index, type);
         }
 
         internal void RegisterUsedBlock(uint blockIndex)

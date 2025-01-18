@@ -3,16 +3,29 @@ using PdbReader.Microsoft.CodeView.Types;
 
 namespace PdbReader
 {
-    /// <summary>The base class for both TPI and IPI streams. Those streams only contains type records.</summary>
+    /// <summary>The base class for both TPI and IPI streams. Those streams only contains type
+    /// records.</summary>
     internal abstract class TypeIndexedStream : IndexedStream
     {
+        protected readonly Dictionary<uint, ITypeRecord> _recordByOffset =
+            new Dictionary<uint, ITypeRecord>();
+
         protected TypeIndexedStream(Pdb owner, ushort streamIndex)
             : base(owner, streamIndex)
         {
         }
 
-        private ITypeRecord LoadLengthPrefixedTypeRecord(uint recordIdentifier)
+        /// <remarks>WARNING : This method DOES NOT register the loaded type record against the owning PDB.
+        /// This responsibility is left to the caller.</remarks>
+        /// <summary></summary>
+        /// <param name="recordIndex"></param>
+        /// <returns></returns>
+        /// <exception cref="BugException"></exception>
+        private ITypeRecord LoadLengthPrefixedTypeRecord(ref uint recordIndex)
         {
+            // Because it will be modified later and we must keep the original value for use in diagnostic
+            // messages.
+            uint thisRecordIndex = recordIndex;
             // This is a special case. When no more bytes remain on the block, the first
             // read below will modify the global offset BEFORE reading the first byte.
             // Hence capturing global offset now would provide an erroneous result.
@@ -26,7 +39,7 @@ namespace PdbReader
             uint recordTotalLength = (uint)(recordLength + sizeof(ushort));
             IStreamGlobalOffset recordEndGlobalOffsetExcluded = recordStartGlobalOffset.Add(recordTotalLength);
             uint recordEndOffsetExcluded = recordStartOffset + recordTotalLength;
-            ITypeRecord result = LoadTypeRecord(ref recordLength);
+            ITypeRecord result = LoadTypeRecord(ref recordIndex, ref recordLength);
             IStreamGlobalOffset currentGlobalOffset = _reader.GetGlobalOffset();
             uint currentOffset = _reader.Offset;
             if (currentOffset < recordEndOffsetExcluded) {
@@ -39,13 +52,13 @@ namespace PdbReader
                     // NOTICE : This is an heuristic which is not supported by official source
                     // code evidences.
                     Console.WriteLine(
-                        $"WARN : Record #{recordIdentifier} starting at 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
+                        $"WARN : Record #{thisRecordIndex} starting at 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
                         $"Should have ended at 0x{recordEndGlobalOffsetExcluded.Value:X8}/{recordEndOffsetExcluded} : {ignoredBytesCount} bytes ignored.");
                 }
                 else {
                     doNotWarnOnReset = true;
                     if (_owner.FullDecodingDebugEnabled) {
-                        Console.WriteLine($"DBG : {result.Type} record #{recordIdentifier} fully decoded.");
+                        Console.WriteLine($"DBG : {result.Type} record #{thisRecordIndex} fully decoded.");
                     }
                 }
                 // Adjust reader position.
@@ -54,96 +67,133 @@ namespace PdbReader
             else if (currentOffset > recordEndOffsetExcluded) {
                 uint excessBytesCount = currentOffset - recordEndOffsetExcluded;
                 Console.WriteLine(
-                    $"WARN : {result.Type} ({result.LeafKind}) record #{recordIdentifier} starting 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
+                    $"WARN : {result.Type} ({result.LeafKind}) record #{thisRecordIndex} starting 0x{recordStartGlobalOffset.Value:X8}/{recordStartOffset}.\r\n" +
                     $"Should have ended at 0x{recordEndGlobalOffsetExcluded.Value:X8}/{recordEndOffsetExcluded} : consumed {excessBytesCount} bytes in excess");
                 // Adjust reader position.
                 _reader.SetGlobalOffset(recordEndGlobalOffsetExcluded);
             }
             else if (currentOffset == recordEndOffsetExcluded) {
                 if (_owner.FullDecodingDebugEnabled) {
-                    Console.WriteLine($"DBG : {result.Type} record #{recordIdentifier} fully decoded.");
+                    Console.WriteLine($"DBG : {result.Type} record #{thisRecordIndex} fully decoded.");
                 }
             }
             else { throw new BugException(); }
             return result;
         }
 
-        internal ITypeRecord LoadTypeRecord(ref uint recordLength)
+        internal ITypeRecord LoadTypeRecord(ref uint recordIndex, ref uint recordLength)
         {
             // Most if not all definitions are from CVINFO.H
             TypeKind recordKind = (TypeKind)_reader.PeekUInt16();
+            ITypeRecord result;
             switch (recordKind) {
                 case TypeKind.ArgumentList:
-                    return ArgumentList.Create(_reader, ref recordLength);
+                    result = ArgumentList.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Array:
-                    return CodeViewArray.Create(_reader, ref recordLength);
+                    result = CodeViewArray.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Array16Bits:
-                    return CodeViewArray16Bits.Create(_reader, ref recordLength);
+                    result = CodeViewArray16Bits.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.BClass:
-                    return BaseClass.Create(_reader, ref recordLength);
+                    result = BaseClass.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.BitField:
-                    return BitField.Create(_reader, ref recordLength);
+                    result = BitField.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.BuildInformation:
-                    return BuildInformation.Create(_reader, ref recordLength);
+                    result = BuildInformation.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Class:
-                    return Class.Create(_reader, ref recordLength);
+                    result = Class.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Enum:
-                    return Enumeration.Create(_reader, ref recordLength);
+                    result = Enumeration.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Enumerate:
-                    return Enumerate.Create(_reader, ref recordLength);
+                    result = Enumerate.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.FieldList:
-                    return FieldList.Create(this, ref recordLength);
+                    // WARNING : This is a special case because we create several ITypeRecord at once.
+                    // We immediately return and delegate type record registration to the FieldList class.
+                    return FieldList.Create(this, ref recordIndex, ref recordLength);
                 case TypeKind.FunctionIdentifier:
-                    return FunctionIdentifier.Create(_reader, ref recordLength);
+                    result = FunctionIdentifier.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Index:
-                    return Microsoft.CodeView.Types.Index.Create(_reader, ref recordLength);
+                    result = Microsoft.CodeView.Types.Index.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Label:
-                    return Label.Create(_reader, ref recordLength);
+                    result = Label.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Member:
-                    return Member.Create(_reader, ref recordLength);
+                    result = Member.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Method:
-                    return Method.Create(_reader, ref recordLength);
+                    result = Method.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.MethodList:
-                    return MethodList.Create(this, ref recordLength);
+                    result = MethodList.Create(this, ref recordLength);
+                    break;
                 case TypeKind.MFunction:
-                    return MemberFunction.Create(_reader, ref recordLength);
+                    result = MemberFunction.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.MFunctionIdentifier:
-                    return MemberFunctionIdentifier.Create(_reader, ref recordLength);
+                    result = MemberFunctionIdentifier.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Modifier:
-                    return Modifier.Create(_reader, ref recordLength);
+                    result = Modifier.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.NestedType:
-                    return NestedType.Create(_reader, ref recordLength);
+                    result = NestedType.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.OneMethod:
-                    return OneMethod.Create(_reader, ref recordLength);
+                    result = OneMethod.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Pointer:
                     // Remaining bytes may be present that are name chars related.
-                    return PointerBody.Create(_reader, this, ref recordLength);
+                    result = PointerBody.Create(_reader, this, ref recordLength);
+                    break;
                 case TypeKind.Procedure:
-                    return Procedure.Create(_reader, ref recordLength);
+                    result = Procedure.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.STMember:
-                    return StaticMember.Create(_reader, ref recordLength);
+                    result = StaticMember.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.StringIdentifier:
-                    return StringIdentifier.Create(_reader, ref recordLength);
+                    result = StringIdentifier.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Structure:
-                    return Structure.Create(_reader, ref recordLength);
+                    result = Structure.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.SubstringList:
-                    return SubstringList.Create(_reader, ref recordLength);
+                    result = SubstringList.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.UDTModuleSourceLine:
-                    return UDTModuleSourceLine.Create(_reader, ref recordLength);
+                    result = UDTModuleSourceLine.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.UDTSourceLine:
-                    return UDTSourceLine.Create(_reader, ref recordLength);
+                    result = UDTSourceLine.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.Union:
-                    return Union.Create(_reader, ref recordLength);
+                    result = Union.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.IVBClass:
-                    return IVirtualBaseClass.Create(_reader, ref recordLength);
+                    result = IVirtualBaseClass.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.VBClass:
-                    return VirtualBaseClass.Create(_reader, ref recordLength);
+                    result = VirtualBaseClass.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.VirtualFunctionTable:
-                    return VirtualFunctionTable.Create(_reader, ref recordLength);
+                    result = VirtualFunctionTable.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.VFunctionTAB:
-                    return VirtualFunctionTablePointer.Create(_reader, ref recordLength);
+                    result = VirtualFunctionTablePointer.Create(_reader, ref recordLength);
+                    break;
                 case TypeKind.VirtualTableShape:
-                    return VirtualTableShape.Create(_reader, ref recordLength);
+                    result = VirtualTableShape.Create(_reader, ref recordLength);
+                    break;
                 default:
                     // TODO : Account for padding pseudo bytes.
                     // Handling should match description from include file (i.e. should only
@@ -152,33 +202,36 @@ namespace PdbReader
                     Console.WriteLine(warningMessage);
                     throw new PDBFormatException(warningMessage);
             }
+            _owner.RegisterType(recordIndex++, result);
+            return result;
         }
 
         protected virtual void LoadTypeRecords()
         {
             Console.WriteLine($"Loading {StreamName} stream Type records.");
             uint recordsCount = RecordsCount;
+            uint firstInvalidIndex = _header.TypeIndexEndExcluded;
             uint totalRecordBytes = _header.TypeRecordBytes;
             uint offset = 0;
-            uint recordIndex = 0;
+            uint recordIndex = _header.TypeIndexBegin;
             while (offset < totalRecordBytes) {
-                uint startOffset = _reader.Offset;
-                ITypeRecord newRecord = LoadLengthPrefixedTypeRecord(recordIndex);
-                // TODO : Should store the returned record.
-                uint deltaOffset = _reader.Offset - startOffset;
-                if (0 == deltaOffset) {
-                    throw new BugException();
-                }
-                offset += deltaOffset;
-                if (++recordIndex >= recordsCount) {
+                if (recordIndex >= firstInvalidIndex) {
                     // We should have consumed the expected total number of bytes.
                     if (offset < totalRecordBytes) {
                         throw new BugException();
                     }
                 }
+                uint startOffset = _reader.Offset;
+                ITypeRecord newRecord = LoadLengthPrefixedTypeRecord(ref recordIndex);
+                _recordByOffset.Add(startOffset, newRecord);
+                uint deltaOffset = _reader.Offset - startOffset;
+                if (0 == deltaOffset) {
+                    throw new BugException();
+                }
+                offset += deltaOffset;
             }
             Console.WriteLine(
-                $"{StreamName} records loading completed. {recordIndex} records found. {recordsCount} were expected.");
+                $"{StreamName} records loading completed. {recordIndex - _header.TypeIndexBegin} records found. {recordsCount} were expected.");
             return;
         }
     }

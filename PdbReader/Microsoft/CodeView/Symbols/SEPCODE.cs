@@ -12,8 +12,8 @@ namespace PdbReader.Microsoft.CodeView.Symbols
         private readonly ushort _sect;       //  (proc, block, or sepcode)
         private readonly ushort _sectParent;
 
-        internal SEPCODE(PdbStreamReader reader, ushort recordLength, BaseSymbolStream.SymbolKind symbolKind)
-            : base(recordLength, symbolKind)
+        internal SEPCODE(PdbStreamReader reader, ushort recordLength, SymbolKind symbolKind)
+            : base(reader.Owner, recordLength, symbolKind)
         {
             _parent = reader.ReadUInt32();
             _end = reader.ReadUInt32();

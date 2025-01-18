@@ -1,7 +1,7 @@
 ﻿
 namespace PdbReader.Microsoft.CodeView.Symbols
 {
-    internal class PROCSYM32 : BaseSymbolRecord
+    internal class PROCSYM32 : BaseSymbolRecord, IProcedure
     {
         private readonly uint _parent; // pointer to the parent
         private readonly uint _end; // pointer to this blocks end
@@ -9,13 +9,16 @@ namespace PdbReader.Microsoft.CodeView.Symbols
         private readonly uint _procedureLength; // Proc length
         private readonly uint _dbgStart; // Debug start offset
         private readonly uint _dbgEnd; // Debug end offset
+        /// <summary>Either a type index or a type identifier.
+        /// Type identifiers are predefined types.
+        /// Valid type indexes are those that are greater or equal to <see cref="TPIStream."/></summary>
         private readonly uint _typeIndexOrID; // Type index or ID
         private readonly uint _offset;
         private readonly ushort _segment;
         private readonly Flags _flags;
 
-        internal PROCSYM32(PdbStreamReader reader, ushort recordLength, BaseSymbolStream.SymbolKind symbolKind)
-            : base(recordLength, symbolKind)
+        internal PROCSYM32(PdbStreamReader reader, ushort recordLength, SymbolKind symbolKind)
+            : base(reader.Owner, recordLength, symbolKind)
         {
             _parent = reader.ReadUInt32();
             _end = reader.ReadUInt32();
@@ -31,7 +34,9 @@ namespace PdbReader.Microsoft.CodeView.Symbols
             return;
         }
 
-        internal string Name { get; private set; }
+        public string Name { get; private set; }
+
+        public uint TypeOrID => _typeIndexOrID;
 
         // CV_PROCFLAGS
         [Flags()]

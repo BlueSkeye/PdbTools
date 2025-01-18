@@ -11,7 +11,7 @@ namespace PdbReader.Microsoft.CodeView.Symbols
         internal ushort _module;
 
         internal ANNOTATIONREF(PdbStreamReader reader, ushort recordLength)
-            : base(recordLength, BaseSymbolStream.SymbolKind.S_ANNOTATIONREF)
+            : base(reader.Owner, recordLength, SymbolKind.S_ANNOTATIONREF)
         {
             _unknown = reader.ReadUInt32();
             _offset = reader.ReadUInt32();

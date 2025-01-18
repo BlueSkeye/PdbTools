@@ -1,11 +1,11 @@
 ﻿
 namespace PdbReader.Microsoft.CodeView
 {
-    internal interface ICodeviewRecord
+    public interface ICodeviewRecord
     {
         RecordType Type { get; }
 
-        internal enum RecordType
+        public enum RecordType
         {
             UNDEFINED = 0,
             Type,

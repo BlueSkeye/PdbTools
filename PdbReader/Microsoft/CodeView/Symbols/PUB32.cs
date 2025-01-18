@@ -1,7 +1,4 @@
 ﻿
-using System.Drawing;
-using System;
-
 namespace PdbReader.Microsoft.CodeView.Symbols
 {
     internal class PUB32 : BaseSymbolRecord
@@ -11,7 +8,7 @@ namespace PdbReader.Microsoft.CodeView.Symbols
         private ushort _segment;
 
         internal PUB32(PdbStreamReader reader, ushort recordLength)
-            : base(recordLength, BaseSymbolStream.SymbolKind.S_PUB32)
+            : base(reader.Owner, recordLength, SymbolKind.S_PUB32)
         {
             _flags = reader.ReadUInt32();
             _offset = reader.ReadUInt32();

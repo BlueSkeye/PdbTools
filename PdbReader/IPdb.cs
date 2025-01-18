@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using PdbReader.Microsoft.CodeView;
+using System.IO;
 
 namespace PdbReader
 {
@@ -24,7 +25,11 @@ namespace PdbReader
 
         void EnsureGlobalStreamIsLoaded();
 
+        void EnsureModuleSymbolStreamIsLoaded(ushort moduleId);
+
         void EnsureSymbolStreamIsLoaded();
+
+        IEnumerable<ISymbolRecord> EnumerateAllSymbols();
 
         /// <summary>Retrieve definition of the module having the given identifier.</param>
         /// <returns>The module definition or a null reference if no such module could be

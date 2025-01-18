@@ -61,16 +61,23 @@ namespace PdbReader
             return (byte)value;
         }
 
-        internal static int SafeCastToInt32(uint value)
+        internal static ushort SafeCastToUint16(int value)
         {
-            if (int.MaxValue < value) { throw new BugException(); }
-            return (int)value;
+            if (0 > value) { throw new BugException(); }
+            if (ushort.MaxValue < value) { throw new BugException(); }
+            return (ushort)value;
         }
 
         internal static ushort SafeCastToUint16(uint value)
         {
             if (ushort.MaxValue < value) { throw new BugException(); }
             return (ushort)value;
+        }
+
+        internal static int SafeCastToInt32(uint value)
+        {
+            if (int.MaxValue < value) { throw new BugException(); }
+            return (int)value;
         }
 
         internal static uint SafeCastToUint32(long value)

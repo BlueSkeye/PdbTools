@@ -8,8 +8,8 @@ namespace PdbReader.Microsoft.CodeView.Symbols
         private readonly ushort csz; // Count of zero terminated annotation strings
         private readonly string[] _annotations; // Sequence of zero terminated annotation strings
 
-        internal ANNOTATION(PdbStreamReader reader, ushort recordLength, BaseSymbolStream.SymbolKind symbolKind)
-            : base(recordLength, symbolKind)
+        internal ANNOTATION(PdbStreamReader reader, ushort recordLength, SymbolKind symbolKind)
+            : base(reader.Owner, recordLength, symbolKind)
         {
             _offset = reader.ReadUInt32();
             _segment = reader.ReadUInt16();

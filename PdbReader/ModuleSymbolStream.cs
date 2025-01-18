@@ -10,10 +10,9 @@ namespace PdbReader
     /// defined in the compiland. Finally, there is a “global refs” substream which is not well understood.
     /// </summary>
     /// <remarks>See https://llvm.org/docs/PDB/ModiStream.html</remarks>
-    internal class ModuleInformationStream : BaseSymbolStream
+    internal class ModuleSymbolStream : BaseSymbolStream
     {
         private readonly string _streamName;
-        private readonly List<ISymbolRecord> _symbols;
 
         /// <summary></summary>
         /// <param name="owner"></param>
@@ -24,7 +23,7 @@ namespace PdbReader
         /// <exception cref="NotSupportedException"></exception>
         /// <exception cref="PDBFormatException"></exception>
         /// <exception cref="NotImplementedException"></exception>
-        internal ModuleInformationStream(Pdb owner, ushort index, uint symbolSize, uint c11BytesSize,
+        internal ModuleSymbolStream(Pdb owner, ushort index, uint symbolSize, uint c11BytesSize,
             uint c13BytesSize)
             : base(owner, index)
         {
@@ -40,10 +39,11 @@ namespace PdbReader
             if (Signature.C13 != signature) {
                 throw new PDBFormatException($"Unsupported signature format : {signature}");
             }
-            _symbols = new List<ISymbolRecord>();
             while (endOffsetExcluded > _reader.Offset) {
-                _symbols.Add(base.LoadSymbolRecord());
-                _reader.EnsureAlignment(4);
+                uint symbolOffset = _reader.Offset;
+                ISymbolRecord newRecord = base.LoadSymbolRecord();
+                base.RegisterSymbol(symbolOffset, newRecord);
+                _reader.EnsureAlignment(sizeof(uint));
             }
             if (endOffsetExcluded != _reader.Offset) {
                 throw new PDBFormatException($"Invalid end offset.");
@@ -53,6 +53,16 @@ namespace PdbReader
         }
 
         internal override string StreamName => _streamName;
+
+        internal ISymbolRecord GetSymbolByOffset(uint offset)
+        {
+            ISymbolRecord? result;
+            if (!_symbolsByOffset.TryGetValue(offset, out result)) {
+                throw new PDBFormatException(
+                    $"No symbol found at offset 0x{offset:X8} in module {_streamName} (idx = {StreamIndex})");
+            }
+            return result;
+        }
 
         internal enum Signature : uint
         {

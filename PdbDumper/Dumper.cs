@@ -3,6 +3,8 @@ using System.Reflection;
 
 using PdbDownloader;
 using PdbReader;
+using PdbReader.Microsoft.CodeView;
+using PdbReader.Microsoft.CodeView.Symbols;
 
 namespace PdbDumper
 {
@@ -70,7 +72,26 @@ namespace PdbDumper
             }
             pdb.EnsureSymbolStreamIsLoaded();
             pdb.EnsureGlobalStreamIsLoaded();
-            // pdb.EnsureGlobalStreamIsLoaded();
+            Dictionary<Type, int> symbolCountPerType = new Dictionary<Type, int>();
+            foreach (ISymbolRecord record in pdb.EnumerateAllSymbols()) {
+                Type recordType = record.GetType();
+                if (!symbolCountPerType.ContainsKey(recordType)) {
+                    symbolCountPerType.Add(recordType, 0);
+                }
+                symbolCountPerType[recordType]++;
+                switch (recordType.Name) {
+                    case "PROCREF":
+                        IProcedureReference procedureReference = (IProcedureReference)record;
+                        IProcedure procedure = procedureReference.GetProcedure();
+                        Console.WriteLine($"Procedure {procedure.Name} : 0x{procedure.TypeOrID:X8}");
+                        break;
+                    default:
+                        break;
+                }
+            }
+            foreach(KeyValuePair<Type, int> pair in symbolCountPerType) {
+                Console.WriteLine($"{pair.Key.Name} : {pair.Value} records.");
+            }
             //using (StreamWriter writer = new StreamWriter(File.OpenWrite(_outputFile.FullName))) {
             //    pdb.DumpGlobalSymbols(writer);
             //    return 0;
@@ -198,7 +219,8 @@ namespace PdbDumper
             // Dirty trick to resolve some random discrepancy in assembly loading when
             // debugging under VS 2022
             DirectoryInfo baseDirectory =
-                new FileInfo(Assembly.GetExecutingAssembly().Location).Directory;
+                new FileInfo(Assembly.GetExecutingAssembly().Location).Directory
+                    ?? throw new ApplicationException("BUG");
             AppDomain.CurrentDomain.AssemblyResolve +=
                 delegate (object? sender, ResolveEventArgs args) {
                     AssemblyName failedName = new AssemblyName(args.Name);
@@ -462,8 +484,9 @@ namespace PdbDumper
                         directoryStack.Push(subDirectory);
                     }
                 }
-                catch (UnauthorizedAccessException uae) {
-                    Console.WriteLine($"WARN : Directory {currentDirectory.FullName} ignored (access denied).");
+                catch (UnauthorizedAccessException) {
+                    Console.WriteLine(
+                        $"WARN : Directory {currentDirectory.FullName} ignored (access denied).");
                     continue;
                 }
                 foreach(FileInfo candidateFile in currentDirectory.GetFiles()) {

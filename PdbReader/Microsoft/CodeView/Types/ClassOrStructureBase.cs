@@ -36,19 +36,16 @@ namespace PdbReader.Microsoft.CodeView.Types
             string itemName = reader.ReadNTBString(ref maxLength);
             ClassOrStructureBase result = instanciator(header, structureSize, itemName);
             // The unknown value is optional.
-            if (sizeof(ushort) < maxLength)
-            {
+            if (sizeof(ushort) < maxLength) {
                 // TODO : Understand why sometimes there is a single byte 0xF3
                 // for example that can't strictly be considered padding.
                 ulong unknown = (ulong)reader.ReadVariant(out variantLength);
                 result._unknown = unknown;
-                if (variantLength > maxLength)
-                {
+                if (variantLength > maxLength) {
                     throw new BugException();
                 }
                 Utils.SafeDecrement(ref maxLength, variantLength);
-                if (0 < maxLength)
-                {
+                if (0 < maxLength) {
                     // We must expect an additional decorated name.
                     result._decoratedName = reader.ReadNTBString(ref maxLength);
                 }

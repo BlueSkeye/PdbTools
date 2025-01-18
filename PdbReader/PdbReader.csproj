@@ -21,11 +21,14 @@
     <Compile Include="HashStream.cs" />
     <Compile Include="HashTable.cs" />
     <Compile Include="HashTableContent.cs" />
+    <Compile Include="IAllSymbolStream.cs" />
     <Compile Include="IdIndexedStream.cs" />
     <Compile Include="IndexedStream.cs" />
     <Compile Include="IPdb.cs" />
     <Compile Include="IStreamGlobalOffset.cs" />
     <Compile Include="Microsoft\CodeView\Symbols\ANNOTATIONREF.cs" />
+    <Compile Include="Microsoft\CodeView\Symbols\IProcedure.cs" />
+    <Compile Include="Microsoft\CodeView\Symbols\IProcedureReference.cs" />
     <Compile Include="Microsoft\CodeView\Symbols\PROCREF.cs" />
     <Compile Include="Microsoft\CodeView\Symbols\PUB32.cs" />
     <Compile Include="Microsoft\CodeView\Types\ArgumentList.cs" />
@@ -101,7 +104,7 @@
     <Compile Include="Microsoft\RUNTIME_FUNCTION.cs" />
     <Compile Include="Microsoft\UnwindData.cs" />
     <Compile Include="ModuleInfoRecord.cs" />
-    <Compile Include="ModuleInformationStream.cs" />
+    <Compile Include="ModuleSymbolStream.cs" />
     <Compile Include="MSFSuperBlock.cs" />
     <Compile Include="Pdb.cs" />
     <Compile Include="PdbFeatureCodes.cs" />
@@ -117,6 +120,7 @@
     <Compile Include="SectionMapHeader.cs" />
     <Compile Include="StringPoolHeader.cs" />
     <Compile Include="BaseSymbolStream.cs" />
+    <Compile Include="SymbolKind.cs" />
     <Compile Include="TPIStream.cs" />
     <Compile Include="..\SharedSource\BugException.cs" />
     <Compile Include="..\SharedSource\KnownDirectories.cs" />
